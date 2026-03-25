@@ -714,10 +714,8 @@ with tab3:
     }
 
     @st.cache_data(ttl=3600, show_spinner=False)
-    def fetch_cross_asset_data():
-        all_tickers = []
-        for group in ASSET_GROUPS.values():
-            all_tickers.extend(group.values())
+    def fetch_cross_asset_data(_ticker_tuple):
+        all_tickers = list(_ticker_tuple)
         # Fetch 1 year of data for all calcs
         try:
             data = yf.download(all_tickers, period="1y", interval="1d", auto_adjust=True, progress=False, threads=True)
@@ -729,7 +727,10 @@ with tab3:
         except Exception:
             return pd.DataFrame()
 
-    cross_data = fetch_cross_asset_data()
+    all_tickers = []
+    for group in ASSET_GROUPS.values():
+        all_tickers.extend(group.values())
+    cross_data = fetch_cross_asset_data(tuple(all_tickers))
     if not cross_data.empty and cross_data.index.tz is not None:
         cross_data.index = cross_data.index.tz_localize(None)
 
