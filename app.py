@@ -707,7 +707,162 @@ with tab2:
             fig_path.update_layout(yaxis_title="Implied Rate (%)", xaxis_tickangle=-45)
             st.plotly_chart(fig_path, use_container_width=True)
 
-    # ── FOMC Dot Plot Reference ──
+    # ── FedWatch-Style Per-Meeting Probabilities ──
+    st.divider()
+    st.markdown("#### FOMC Meeting Probabilities — FedWatch Style")
+    st.caption("Interpolated from monthly FF futures using the CME FedWatch methodology: isolates the implied rate change at each meeting using day-weighting within the contract month.")
+
+    # Scheduled FOMC announcement dates
+    FOMC_DATES = [
+        # 2026
+        (2026, 1, 28), (2026, 3, 18), (2026, 5, 6), (2026, 6, 17),
+        (2026, 7, 29), (2026, 9, 16), (2026, 10, 28), (2026, 12, 16),
+        # 2027
+        (2027, 1, 27), (2027, 3, 17), (2027, 5, 5), (2027, 6, 16),
+        (2027, 7, 28), (2027, 9, 22), (2027, 10, 27), (2027, 12, 15),
+    ]
+
+    def compute_fedwatch(contracts_dict, current_effr, fomc_dates_raw):
+        """
+        CME FedWatch interpolation.
+        contracts_dict: {"Mar 2026": 3.64, ...} implied rates from FF futures
+        Returns list of dicts with per-meeting implied rates and probabilities.
+        """
+        import calendar
+        from datetime import date
+
+        today = date.today()
+        fomc_dates = [date(y, m, d) for y, m, d in fomc_dates_raw if date(y, m, d) > today]
+
+        month_key = lambda d: f"{d.strftime('%b')} {d.year}"
+        results = []
+
+        for mtg in fomc_dates:
+            mk = month_key(mtg)
+            if mk not in contracts_dict:
+                continue
+
+            month_rate = contracts_dict[mk]
+            days_in_month = calendar.monthrange(mtg.year, mtg.month)[1]
+            effective_day = mtg.day + 1  # rate change effective day after announcement
+            days_before = effective_day - 1
+            days_after = days_in_month - days_before
+
+            # Pre-meeting rate: prior month's contract
+            prior_month = mtg.month - 1 if mtg.month > 1 else 12
+            prior_year = mtg.year if mtg.month > 1 else mtg.year - 1
+            prior_key = month_key(date(prior_year, prior_month, 1))
+
+            if prior_key in contracts_dict:
+                pre_rate = contracts_dict[prior_key]
+            else:
+                pre_rate = current_effr
+
+            # If meeting is very late in month (<=2 days after), the month's
+            # contract is dominated by pre-meeting rate — use next month instead
+            if days_after <= 2:
+                next_month = mtg.month + 1 if mtg.month < 12 else 1
+                next_year = mtg.year if mtg.month < 12 else mtg.year + 1
+                next_key = month_key(date(next_year, next_month, 1))
+                post_rate = contracts_dict.get(next_key, month_rate)
+            else:
+                post_rate = (month_rate * days_in_month - pre_rate * days_before) / days_after
+
+            delta_bp = (post_rate - pre_rate) * 100
+
+            # Probability of 25bp move vs hold
+            prob_25bp = min(abs(delta_bp) / 25, 1.0)
+            prob_hold = 1.0 - prob_25bp
+            move_type = "cut" if delta_bp < 0 else "hike" if delta_bp > 0 else "hold"
+
+            results.append({
+                "meeting": mtg.strftime("%b %d, %Y"),
+                "pre_rate": pre_rate,
+                "post_rate": post_rate,
+                "delta_bp": delta_bp,
+                "prob_hold": prob_hold,
+                "prob_25bp": prob_25bp,
+                "move_type": move_type,
+            })
+
+        return results
+
+    if not ff_df.empty:
+        # Build contracts dict from ff_df
+        contracts_dict = dict(zip(ff_df["contract"], ff_df["implied_rate"]))
+        effr_for_fw = effr_series.iloc[-1] if len(effr_series) > 0 else None
+
+        if effr_for_fw is not None:
+            fw_results = compute_fedwatch(contracts_dict, effr_for_fw, FOMC_DATES)
+
+            if fw_results:
+                # ── Probability table ──
+                tbl_hdr = '<div style="display:grid; grid-template-columns:120px 95px 95px 85px 100px 100px; gap:6px; padding:4px 8px; font-size:0.68rem; color:#8b949e; font-family:JetBrains Mono,monospace; border-bottom:1px solid #30363d; text-transform:uppercase;">'
+                tbl_hdr += '<span>FOMC Date</span><span style="text-align:right">Pre-Rate</span><span style="text-align:right">Post-Rate</span><span style="text-align:right">Δ (bp)</span><span style="text-align:right">P(Hold)</span><span style="text-align:right">P(25bp Move)</span></div>'
+                st.markdown(tbl_hdr, unsafe_allow_html=True)
+
+                for r in fw_results:
+                    delta_color = GREEN if r["delta_bp"] < -1 else RED if r["delta_bp"] > 1 else MUTED
+                    move_label = f'{r["prob_25bp"]*100:.0f}% {r["move_type"]}'
+                    move_color = GREEN if r["move_type"] == "cut" else RED if r["move_type"] == "hike" else MUTED
+
+                    row = f'<div style="display:grid; grid-template-columns:120px 95px 95px 85px 100px 100px; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
+                    row += f'<span style="color:#8b949e;">{r["meeting"]}</span>'
+                    row += f'<span style="text-align:right;">{r["pre_rate"]:.3f}%</span>'
+                    row += f'<span style="text-align:right; font-weight:600;">{r["post_rate"]:.3f}%</span>'
+                    row += f'<span style="text-align:right; color:{delta_color};">{r["delta_bp"]:+.1f}</span>'
+                    row += f'<span style="text-align:right;">{r["prob_hold"]*100:.0f}%</span>'
+                    row += f'<span style="text-align:right; color:{move_color}; font-weight:600;">{move_label}</span>'
+                    row += '</div>'
+                    st.markdown(row, unsafe_allow_html=True)
+
+                st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
+
+                # ── FedWatch-style bar chart ──
+                fw_df = pd.DataFrame(fw_results)
+                fig_fw = go.Figure()
+
+                # Stacked bars: hold vs 25bp move
+                fig_fw.add_trace(go.Bar(
+                    x=fw_df["meeting"], y=fw_df["prob_hold"] * 100,
+                    name="Hold", marker_color=MUTED, opacity=0.6,
+                    hovertemplate="%{x}<br>Hold: %{y:.1f}%<extra></extra>",
+                ))
+                move_colors = [GREEN if t == "cut" else RED if t == "hike" else MUTED for t in fw_df["move_type"]]
+                move_labels = [f"25bp {t}" for t in fw_df["move_type"]]
+                fig_fw.add_trace(go.Bar(
+                    x=fw_df["meeting"], y=fw_df["prob_25bp"] * 100,
+                    name="25bp Move", marker_color=move_colors, opacity=0.85,
+                    hovertemplate="%{x}<br>25bp move: %{y:.1f}%<extra></extra>",
+                ))
+
+                # Implied post-meeting rate as line on secondary axis
+                fig_fw.add_trace(go.Scatter(
+                    x=fw_df["meeting"], y=fw_df["post_rate"],
+                    name="Implied Post-Meeting Rate",
+                    line=dict(color=BLUE, width=2.5),
+                    mode="lines+markers",
+                    marker=dict(size=6),
+                    yaxis="y2",
+                    hovertemplate="%{x}<br>Post-meeting: %{y:.3f}%<extra></extra>",
+                ))
+
+                fig_fw.update_layout(make_layout("", height=420, barmode="stack"))
+                fig_fw.update_layout(
+                    yaxis=dict(title="Probability (%)", range=[0, 105], gridcolor="#21262d"),
+                    yaxis2=dict(title="Implied Rate (%)", overlaying="y", side="right", showgrid=False),
+                    xaxis=dict(tickangle=-45),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=10)),
+                )
+                st.plotly_chart(fig_fw, use_container_width=True)
+            else:
+                st.info("No upcoming FOMC meetings found in contract range.")
+        else:
+            st.info("EFFR data unavailable — cannot compute meeting probabilities.")
+    else:
+        st.info("FF Futures data unavailable — cannot compute meeting probabilities.")
+
+    st.divider()
     st.markdown("#### FOMC SEP Median Dots vs Market Pricing")
     st.caption("SEP Medians from Dec 2024 projections — update quarterly")
 
