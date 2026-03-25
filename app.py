@@ -847,7 +847,7 @@ with tab4:
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def fetch_vix_data():
-        tickers = ["^VIX", "^VIX3M", "^VIX6M"]
+        tickers = ["^VIX", "^VIX3M", "^VIX6M", "^MOVE"]
         results = {}
         for t in tickers:
             try:
@@ -984,6 +984,83 @@ with tab4:
             st.plotly_chart(fig_vol, use_container_width=True)
     else:
         st.info("Volatility premium data unavailable.")
+
+    # ── MOVE Index (Rates Vol) ──
+    st.divider()
+    st.markdown("#### MOVE Index — Bond Market Volatility")
+
+    if "^MOVE" in vix_data:
+        move_series = vix_data["^MOVE"]
+        move_series.index = move_series.index.tz_localize(None) if move_series.index.tz else move_series.index
+
+        # MOVE metrics + time series side by side
+        move_m_col, move_ts_col = st.columns([1, 3])
+
+        with move_m_col:
+            current_move = move_series.iloc[-1]
+            st.metric("MOVE", f"{current_move:.1f}")
+            # Percentile ranks
+            for period, days in [("1Y", 252), ("3Y", 756), ("5Y", 1260)]:
+                lb_data = move_series.tail(days)
+                if len(lb_data) > 0:
+                    pct = (lb_data < current_move).sum() / len(lb_data) * 100
+                    st.metric(f"Pctl ({period})", f"{pct:.0f}th")
+
+        with move_ts_col:
+            move_lb_col2, _ = st.columns([1, 3])
+            with move_lb_col2:
+                move_lb = st.selectbox("Lookback", ["3M", "1Y", "3Y", "Max"], index=1, key="move_lb")
+            move_start = lookback_date(move_lb)
+            move_plot = move_series[move_series.index >= move_start]
+            if len(move_plot) > 0:
+                fig_move = go.Figure()
+                fig_move.add_trace(go.Scatter(
+                    x=move_plot.index, y=move_plot.values, name="MOVE",
+                    line=dict(color="#f0883e", width=1.5), fill="tozeroy",
+                    fillcolor="rgba(240,136,62,0.08)",
+                ))
+                ma20_move = move_plot.rolling(20).mean()
+                fig_move.add_trace(go.Scatter(
+                    x=ma20_move.index, y=ma20_move.values, name="20d MA",
+                    line=dict(color=YELLOW, width=1, dash="dot"),
+                ))
+                fig_move.update_layout(make_layout("", height=320))
+                fig_move.update_layout(yaxis_title="MOVE Index")
+                st.plotly_chart(fig_move, use_container_width=True)
+
+        # VIX vs MOVE comparison (dual axis)
+        st.markdown("#### VIX vs MOVE — Equity Vol vs Rates Vol")
+        if "^VIX" in vix_data:
+            vix_comp = vix_data["^VIX"].copy()
+            vix_comp.index = vix_comp.index.tz_localize(None) if vix_comp.index.tz else vix_comp.index
+            comp_start = lookback_date(move_lb)
+            vix_c = vix_comp[vix_comp.index >= comp_start]
+            move_c = move_series[move_series.index >= comp_start]
+
+            if len(vix_c) > 0 and len(move_c) > 0:
+                fig_comp = go.Figure()
+                fig_comp.add_trace(go.Scatter(
+                    x=vix_c.index, y=vix_c.values, name="VIX",
+                    line=dict(color=BLUE, width=1.5),
+                ))
+                fig_comp.add_trace(go.Scatter(
+                    x=move_c.index, y=move_c.values, name="MOVE",
+                    line=dict(color="#f0883e", width=1.5), yaxis="y2",
+                ))
+                fig_comp.update_layout(make_layout("", height=350))
+                fig_comp.update_layout(
+                    yaxis=dict(title="VIX", gridcolor="#21262d"),
+                    yaxis2=dict(title="MOVE", overlaying="y", side="right", gridcolor="#21262d", showgrid=False),
+                )
+                # Current ratio
+                try:
+                    ratio_vm = move_series.iloc[-1] / vix_comp.iloc[-1]
+                    st.markdown(f"**MOVE/VIX ratio:** {ratio_vm:.1f}× — {'rates vol elevated vs equity vol' if ratio_vm > 4 else 'normal range'}")
+                except Exception:
+                    pass
+                st.plotly_chart(fig_comp, use_container_width=True)
+    else:
+        st.info("MOVE Index data unavailable.")
 
 
 # ═════════════════════════════════════════════════════════════════════
