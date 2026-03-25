@@ -821,29 +821,23 @@ with tab2:
                 # ── FedWatch-style chart: Implied Rate + Cumulative Cuts ──
                 fw_df = pd.DataFrame(fw_results)
 
-                # Compute cumulative discrete 25bp moves
-                # Each meeting: round to nearest 25bp move (>=12.5bp = 1 move)
-                cum_count = 0
-                cum_counts = []
-                for _, r in fw_df.iterrows():
-                    # Number of 25bp moves at this meeting (rounded)
-                    moves_here = round(r["delta_bp"] / 25)
-                    cum_count += moves_here
-                    cum_counts.append(cum_count)
-                fw_df["cum_moves"] = cum_counts  # negative = cuts, positive = hikes
+                # Cumulative change from current EFFR at each meeting, in 25bp units
+                # No per-meeting rounding — use the running total so bars track the line
+                fw_df["cum_bp"] = (fw_df["post_rate"] - effr_for_fw) * 100
+                fw_df["cum_moves"] = fw_df["cum_bp"] / 25  # fractional 25bp units
 
                 fig_fw = go.Figure()
 
-                # Bars: cumulative cuts/hikes count (right axis)
+                # Bars: cumulative cuts/hikes (right axis)
                 bar_colors = ["#f0883e" for _ in fw_df["cum_moves"]]
                 bar_hover = []
                 for m, v in zip(fw_df["meeting"], fw_df["cum_moves"]):
-                    if v < 0:
-                        bar_hover.append(f"{m}<br>{abs(v)} cut{'s' if abs(v) != 1 else ''}")
-                    elif v > 0:
-                        bar_hover.append(f"{m}<br>{v} hike{'s' if v != 1 else ''}")
+                    if abs(v) < 0.05:
+                        bar_hover.append(f"{m}<br>No change priced")
+                    elif v < 0:
+                        bar_hover.append(f"{m}<br>{abs(v):.1f} cuts priced")
                     else:
-                        bar_hover.append(f"{m}<br>No change")
+                        bar_hover.append(f"{m}<br>{v:.1f} hikes priced")
                 fig_fw.add_trace(go.Bar(
                     x=fw_df["meeting"], y=fw_df["cum_moves"],
                     name="Cumulative Cuts/Hikes",
@@ -890,7 +884,6 @@ with tab2:
                         title="Number of Cuts/Hikes Priced In",
                         overlaying="y", side="right", showgrid=False,
                         zeroline=True, zerolinecolor="rgba(255,255,255,0.15)",
-                        dtick=1,  # integer ticks: ...-2, -1, 0, 1, 2...
                     ),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=10)),
                     bargap=0.3,
