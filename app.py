@@ -818,41 +818,65 @@ with tab2:
 
                 st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
 
-                # ── FedWatch-style bar chart ──
+                # ── FedWatch-style chart: Implied Rate + Cumulative Cuts ──
                 fw_df = pd.DataFrame(fw_results)
+
+                # Compute cumulative cuts from current EFFR
+                fw_df["cum_delta_bp"] = (fw_df["post_rate"] - effr_for_fw) * 100
+                fw_df["cum_cuts"] = fw_df["cum_delta_bp"] / -25  # positive = cuts
+
                 fig_fw = go.Figure()
 
-                # Stacked bars: hold vs 25bp move
+                # Bars: cumulative number of cuts/hikes priced (right axis)
+                bar_colors = ["#f0883e" for _ in fw_df["cum_cuts"]]  # orange like Bloomberg
                 fig_fw.add_trace(go.Bar(
-                    x=fw_df["meeting"], y=fw_df["prob_hold"] * 100,
-                    name="Hold", marker_color=MUTED, opacity=0.6,
-                    hovertemplate="%{x}<br>Hold: %{y:.1f}%<extra></extra>",
-                ))
-                move_colors = [GREEN if t == "cut" else RED if t == "hike" else MUTED for t in fw_df["move_type"]]
-                move_labels = [f"25bp {t}" for t in fw_df["move_type"]]
-                fig_fw.add_trace(go.Bar(
-                    x=fw_df["meeting"], y=fw_df["prob_25bp"] * 100,
-                    name="25bp Move", marker_color=move_colors, opacity=0.85,
-                    hovertemplate="%{x}<br>25bp move: %{y:.1f}%<extra></extra>",
+                    x=fw_df["meeting"], y=fw_df["cum_cuts"],
+                    name="Cumulative Cuts Priced In",
+                    marker_color=bar_colors, opacity=0.75,
+                    yaxis="y2",
+                    hovertemplate="%{x}<br>Cuts priced: %{y:.2f}<extra></extra>",
                 ))
 
-                # Implied post-meeting rate as line on secondary axis
+                # Line: implied post-meeting policy rate (left axis)
                 fig_fw.add_trace(go.Scatter(
                     x=fw_df["meeting"], y=fw_df["post_rate"],
-                    name="Implied Post-Meeting Rate",
-                    line=dict(color=BLUE, width=2.5),
+                    name="Implied Policy Rate (%)",
+                    line=dict(color=BLUE, width=3),
                     mode="lines+markers",
-                    marker=dict(size=6),
-                    yaxis="y2",
-                    hovertemplate="%{x}<br>Post-meeting: %{y:.3f}%<extra></extra>",
+                    marker=dict(size=7, color=BLUE),
+                    hovertemplate="%{x}<br>Implied rate: %{y:.3f}%<extra></extra>",
                 ))
 
-                fig_fw.update_layout(make_layout("", height=420, barmode="stack"))
+                # Current EFFR anchor
+                fig_fw.add_trace(go.Scatter(
+                    x=["Current"], y=[effr_for_fw],
+                    mode="markers+text",
+                    marker=dict(size=10, color="white", line=dict(color=BLUE, width=2)),
+                    text=[f"{effr_for_fw:.2f}%"], textposition="top center",
+                    textfont=dict(color="white", size=11),
+                    showlegend=False,
+                    hovertemplate="Current EFFR: %{y:.3f}%<extra></extra>",
+                ))
+
+                # Reference line at current EFFR
+                fig_fw.add_hline(y=effr_for_fw, line_dash="solid", line_color="rgba(255,255,255,0.25)", line_width=1)
+
+                fig_fw.update_layout(make_layout("Implied Overnight Rate & Number of Cuts Priced In", height=450))
                 fig_fw.update_layout(
-                    yaxis=dict(title="Probability (%)", range=[0, 105], gridcolor="#21262d"),
-                    yaxis2=dict(title="Implied Rate (%)", overlaying="y", side="right", showgrid=False),
-                    xaxis=dict(tickangle=-45),
+                    xaxis=dict(
+                        tickangle=-45,
+                        categoryorder="array",
+                        categoryarray=["Current"] + fw_df["meeting"].tolist(),
+                        gridcolor="#21262d",
+                    ),
+                    yaxis=dict(title="Implied Policy Rate (%)", side="left", gridcolor="#21262d"),
+                    yaxis2=dict(
+                        title="Number of Cuts Priced In",
+                        overlaying="y", side="right", showgrid=False,
+                        zeroline=True, zerolinecolor="rgba(255,255,255,0.15)",
+                    ),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=10)),
+                    bargap=0.3,
                 )
                 st.plotly_chart(fig_fw, use_container_width=True)
             else:
