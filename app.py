@@ -821,21 +821,32 @@ with tab2:
                 # ── FedWatch-style chart: Implied Rate + Cumulative Cuts ──
                 fw_df = pd.DataFrame(fw_results)
 
-                # Compute cumulative cuts/hikes from current EFFR
-                fw_df["cum_delta_bp"] = (fw_df["post_rate"] - effr_for_fw) * 100
-                fw_df["cum_moves"] = fw_df["cum_delta_bp"] / 25  # positive = hikes, negative = cuts
+                # Compute cumulative discrete 25bp moves
+                # Each meeting: round to nearest 25bp move (>=12.5bp = 1 move)
+                cum_count = 0
+                cum_counts = []
+                for _, r in fw_df.iterrows():
+                    # Number of 25bp moves at this meeting (rounded)
+                    moves_here = round(r["delta_bp"] / 25)
+                    cum_count += moves_here
+                    cum_counts.append(cum_count)
+                fw_df["cum_moves"] = cum_counts  # negative = cuts, positive = hikes
 
                 fig_fw = go.Figure()
 
-                # Bars: cumulative cuts/hikes priced (right axis)
-                bar_colors = ["#f0883e" for _ in fw_df["cum_moves"]]  # orange like Bloomberg
-                bar_hover = [
-                    f"{m}<br>{'Hikes' if v > 0 else 'Cuts'}: {abs(v):.2f}" if abs(v) > 0.01 else f"{m}<br>No change"
-                    for m, v in zip(fw_df["meeting"], fw_df["cum_moves"])
-                ]
+                # Bars: cumulative cuts/hikes count (right axis)
+                bar_colors = ["#f0883e" for _ in fw_df["cum_moves"]]
+                bar_hover = []
+                for m, v in zip(fw_df["meeting"], fw_df["cum_moves"]):
+                    if v < 0:
+                        bar_hover.append(f"{m}<br>{abs(v)} cut{'s' if abs(v) != 1 else ''}")
+                    elif v > 0:
+                        bar_hover.append(f"{m}<br>{v} hike{'s' if v != 1 else ''}")
+                    else:
+                        bar_hover.append(f"{m}<br>No change")
                 fig_fw.add_trace(go.Bar(
                     x=fw_df["meeting"], y=fw_df["cum_moves"],
-                    name="Cumulative Cuts/Hikes Priced",
+                    name="Cumulative Cuts/Hikes",
                     marker_color=bar_colors, opacity=0.75,
                     yaxis="y2",
                     hovertext=bar_hover,
@@ -876,9 +887,10 @@ with tab2:
                     ),
                     yaxis=dict(title="Implied Policy Rate (%)", side="left", gridcolor="#21262d"),
                     yaxis2=dict(
-                        title="Number of Cuts Priced In",
+                        title="Number of Cuts/Hikes Priced In",
                         overlaying="y", side="right", showgrid=False,
                         zeroline=True, zerolinecolor="rgba(255,255,255,0.15)",
+                        dtick=1,  # integer ticks: ...-2, -1, 0, 1, 2...
                     ),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=10)),
                     bargap=0.3,
