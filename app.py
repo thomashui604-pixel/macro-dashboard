@@ -251,8 +251,8 @@ def fmt_num(val, decimals=2):
     return f"{val:,.{decimals}f}"
 
 def lookback_date(lookback_str):
-    """Convert lookback string to start date."""
-    now = datetime.now()
+    """Convert lookback string to start date (returns a tz-naive pd.Timestamp)."""
+    now = pd.Timestamp.now()
     mapping = {
         "1M": timedelta(days=30),
         "3M": timedelta(days=91),
@@ -264,7 +264,9 @@ def lookback_date(lookback_str):
         "10Y": timedelta(days=3650),
         "Max": timedelta(days=20000),
     }
-    return now - mapping.get(lookback_str, timedelta(days=365))
+    result = now - mapping.get(lookback_str, timedelta(days=365))
+    # Return tz-naive so pandas will coerce safely against any index
+    return result.tz_localize(None) if result.tzinfo else result
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -720,6 +722,8 @@ with tab3:
             return pd.DataFrame()
 
     cross_data = fetch_cross_asset_data()
+    if not cross_data.empty and cross_data.index.tz is not None:
+        cross_data.index = cross_data.index.tz_localize(None)
 
     def calc_asset_stats(df, ticker):
         """Calculate price, changes, sparkline for a ticker."""
@@ -893,6 +897,7 @@ with tab4:
 
     if "^VIX" in vix_data:
         vix_series = vix_data["^VIX"]
+        vix_series.index = vix_series.index.tz_localize(None) if vix_series.index.tz else vix_series.index
         start = lookback_date(vix_lb)
         vix_plot = vix_series[vix_series.index >= start]
 
@@ -944,6 +949,7 @@ with tab4:
 
     vol_df = calc_vol_premium()
     if not vol_df.empty:
+        vol_df.index = vol_df.index.tz_localize(None) if vol_df.index.tz else vol_df.index
         # Filter to lookback
         vol_start = lookback_date(global_lookback)
         vol_plot = vol_df[vol_df.index >= vol_start]
