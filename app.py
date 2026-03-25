@@ -709,7 +709,7 @@ with tab3:
             "Brent Crude": "BZ=F", "Copper": "HG=F", "Natural Gas": "NG=F",
         },
         "Vol / Risk": {
-            "VIX": "^VIX", "VIX3M": "^VIX3M", "VIX6M": "^VIX6M",
+            "VIX": "^VIX", "VIX3M": "^VIX3M", "VIX6M": "^VIX6M", "MOVE": "^MOVE",
         },
     }
 
@@ -835,8 +835,6 @@ with tab3:
             st.markdown(row, unsafe_allow_html=True)
 
         st.markdown("<div style='margin-bottom: 16px'></div>", unsafe_allow_html=True)
-
-    st.caption("MOVE Index: data unavailable via yfinance")
 
 
 # ═════════════════════════════════════════════════════════════════════
