@@ -567,6 +567,7 @@ with tab2:
         return pd.DataFrame(results)
 
     ff_df = fetch_ff_futures()
+    _effr_tab2 = fetch_fred_series("DFF")
 
     # ── FedWatch-Style Per-Meeting Probabilities ──
     st.markdown("#### FOMC Meeting Probabilities — FedWatch Style")
@@ -650,8 +651,7 @@ with tab2:
     if not ff_df.empty:
         # Build contracts dict from ff_df
         contracts_dict = dict(zip(ff_df["contract"], ff_df["implied_rate"]))
-        effr_series = fetch_fred_series("DFF")
-        effr_for_fw = effr_series.iloc[-1] if len(effr_series) > 0 else None
+        effr_for_fw = _effr_tab2.iloc[-1] if len(_effr_tab2) > 0 else None
 
         if effr_for_fw is not None:
             fw_results = compute_fedwatch(contracts_dict, effr_for_fw, FOMC_DATES)
