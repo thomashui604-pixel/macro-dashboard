@@ -590,52 +590,50 @@ with tab2:
 
             # ── Summary KPI strip ──
             last_row = ff_df.iloc[-1]
-            total_cuts = last_row["n_cuts"]
             total_bp = last_row["rate_delta"] * 100
-            direction = "cuts" if total_cuts < 0 else "hikes"
+            total_25bp = total_bp / 25
+            direction = "easing" if total_bp < 0 else "tightening"
 
             kpi1, kpi2, kpi3, kpi4 = st.columns(4)
             kpi1.metric("Current EFFR", f"{current_effr:.2f}%")
             kpi2.metric("Terminal Implied", f"{last_row['implied_rate']:.3f}%", f"{total_bp:+.0f}bp")
-            kpi3.metric(f"# {direction.title()} Priced", f"{abs(total_cuts):.1f}", f"by {last_row['contract']}")
+            kpi3.metric(f"Cum. {direction.title()}", f"{abs(total_bp):.0f}bp (~{abs(total_25bp):.1f} × 25bp)", f"by {last_row['contract']}")
             kpi4.metric("Next Month", ff_df.iloc[0]["contract"], f"{ff_df.iloc[0]['implied_rate']:.3f}%")
 
             # ── Monthly contract table ──
             st.markdown("##### Monthly Contract Strip")
-            tbl_header = '<div style="display:grid; grid-template-columns: 120px 100px 90px 90px 100px; gap:6px; padding:4px 8px; font-size:0.7rem; color:#8b949e; font-family:JetBrains Mono,monospace; border-bottom:1px solid #30363d; text-transform:uppercase;">'
-            tbl_header += '<span>Month</span><span style="text-align:right">Implied Rate</span><span style="text-align:right">Δ vs Now</span><span style="text-align:right">25bp Equiv.</span><span style="text-align:right">Cum. Δ (bp)</span></div>'
+            tbl_header = '<div style="display:grid; grid-template-columns: 120px 110px 100px; gap:6px; padding:4px 8px; font-size:0.7rem; color:#8b949e; font-family:JetBrains Mono,monospace; border-bottom:1px solid #30363d; text-transform:uppercase;">'
+            tbl_header += '<span>Month</span><span style="text-align:right">Implied Rate</span><span style="text-align:right">Δ vs Current (bp)</span></div>'
             st.markdown(tbl_header, unsafe_allow_html=True)
 
             # Add "Current" row
-            cur_row = f'<div style="display:grid; grid-template-columns:120px 100px 90px 90px 100px; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
-            cur_row += f'<span style="color:#8b949e;">Current</span><span style="text-align:right; font-weight:600;">{current_effr:.3f}%</span><span style="text-align:right; color:#484f58;">—</span><span style="text-align:right; color:#484f58;">—</span><span style="text-align:right; color:#484f58;">—</span></div>'
+            cur_row = f'<div style="display:grid; grid-template-columns:120px 110px 100px; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
+            cur_row += f'<span style="color:#8b949e;">Current</span><span style="text-align:right; font-weight:600;">{current_effr:.3f}%</span><span style="text-align:right; color:#484f58;">—</span></div>'
             st.markdown(cur_row, unsafe_allow_html=True)
 
             for _, r in ff_df.iterrows():
                 delta_bp = r["rate_delta"] * 100
-                color = GREEN if delta_bp <= 0 else RED  # cuts = green
-                n_str = f"{r['n_cuts']:+.2f}"
-                row_html = f'<div style="display:grid; grid-template-columns:120px 100px 90px 90px 100px; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
+                color = GREEN if delta_bp <= 0 else RED
+                row_html = f'<div style="display:grid; grid-template-columns:120px 110px 100px; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
                 row_html += f'<span style="color:#8b949e;">{r["contract"]}</span>'
                 row_html += f'<span style="text-align:right; font-weight:600;">{r["implied_rate"]:.3f}%</span>'
-                row_html += f'<span style="text-align:right; color:{color};">{delta_bp:+.0f}bp</span>'
-                row_html += f'<span style="text-align:right; color:{color};">{n_str}</span>'
-                row_html += f'<span style="text-align:right; color:{color};">{delta_bp:+.0f}</span>'
+                row_html += f'<span style="text-align:right; color:{color};">{delta_bp:+.1f}</span>'
                 row_html += '</div>'
                 st.markdown(row_html, unsafe_allow_html=True)
 
             st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
 
             # ── Bloomberg-style dual axis chart ──
-            st.markdown("##### Implied Overnight Rate & Cumulative Easing/Tightening")
+            st.markdown("##### Implied Overnight Rate & Cumulative Change vs Current")
             fig_path = go.Figure()
 
-            # Bars: number of cuts/hikes (right axis)
-            bar_colors = [GREEN if n < 0 else RED if n > 0 else MUTED for n in ff_df["n_cuts"]]
-            bar_hover = [f"{c}<br>{'Cuts' if n < 0 else 'Hikes' if n > 0 else 'No change'}: {abs(n):.2f}" for c, n in zip(ff_df["contract"], ff_df["n_cuts"])]
+            # Bars: cumulative bp change from current EFFR (right axis)
+            cum_bp = ff_df["rate_delta"] * 100
+            bar_colors = [GREEN if bp < 0 else RED if bp > 0 else MUTED for bp in cum_bp]
+            bar_hover = [f"{c}<br>Δ vs current: {bp:+.0f}bp" for c, bp in zip(ff_df["contract"], cum_bp)]
             fig_path.add_trace(go.Bar(
-                x=ff_df["contract"], y=ff_df["n_cuts"],
-                name="# Cuts/Hikes Priced",
+                x=ff_df["contract"], y=cum_bp,
+                name="Cum. Δ vs Current (bp)",
                 marker_color=bar_colors, opacity=0.7,
                 yaxis="y2",
                 hovertext=bar_hover,
@@ -681,7 +679,7 @@ with tab2:
                     gridcolor="#21262d",
                 ),
                 yaxis2=dict(
-                    title="25bp Equiv. Cuts (−) / Hikes (+)",
+                    title="Cum. Δ vs Current (bp)",
                     overlaying="y",
                     side="right",
                     showgrid=False,
