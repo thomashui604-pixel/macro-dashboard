@@ -821,20 +821,25 @@ with tab2:
                 # ── FedWatch-style chart: Implied Rate + Cumulative Cuts ──
                 fw_df = pd.DataFrame(fw_results)
 
-                # Compute cumulative cuts from current EFFR
+                # Compute cumulative cuts/hikes from current EFFR
                 fw_df["cum_delta_bp"] = (fw_df["post_rate"] - effr_for_fw) * 100
-                fw_df["cum_cuts"] = fw_df["cum_delta_bp"] / -25  # positive = cuts
+                fw_df["cum_moves"] = fw_df["cum_delta_bp"] / 25  # positive = hikes, negative = cuts
 
                 fig_fw = go.Figure()
 
-                # Bars: cumulative number of cuts/hikes priced (right axis)
-                bar_colors = ["#f0883e" for _ in fw_df["cum_cuts"]]  # orange like Bloomberg
+                # Bars: cumulative cuts/hikes priced (right axis)
+                bar_colors = ["#f0883e" for _ in fw_df["cum_moves"]]  # orange like Bloomberg
+                bar_hover = [
+                    f"{m}<br>{'Hikes' if v > 0 else 'Cuts'}: {abs(v):.2f}" if abs(v) > 0.01 else f"{m}<br>No change"
+                    for m, v in zip(fw_df["meeting"], fw_df["cum_moves"])
+                ]
                 fig_fw.add_trace(go.Bar(
-                    x=fw_df["meeting"], y=fw_df["cum_cuts"],
-                    name="Cumulative Cuts Priced In",
+                    x=fw_df["meeting"], y=fw_df["cum_moves"],
+                    name="Cumulative Cuts/Hikes Priced",
                     marker_color=bar_colors, opacity=0.75,
                     yaxis="y2",
-                    hovertemplate="%{x}<br>Cuts priced: %{y:.2f}<extra></extra>",
+                    hovertext=bar_hover,
+                    hovertemplate="%{hovertext}<extra></extra>",
                 ))
 
                 # Line: implied post-meeting policy rate (left axis)
