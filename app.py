@@ -532,6 +532,7 @@ with tab1:
 # ═════════════════════════════════════════════════════════════════════
 with tab2:
     st.markdown("#### Implied Fed Funds Rate Path — 30-Day FF Futures")
+    st.caption("Monthly contracts — each reflects the average implied overnight rate for that calendar month, not a specific FOMC meeting date.")
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def fetch_ff_futures():
@@ -597,12 +598,12 @@ with tab2:
             kpi1.metric("Current EFFR", f"{current_effr:.2f}%")
             kpi2.metric("Terminal Implied", f"{last_row['implied_rate']:.3f}%", f"{total_bp:+.0f}bp")
             kpi3.metric(f"# {direction.title()} Priced", f"{abs(total_cuts):.1f}", f"by {last_row['contract']}")
-            kpi4.metric("Next Meeting", ff_df.iloc[0]["contract"], f"{ff_df.iloc[0]['implied_rate']:.3f}%")
+            kpi4.metric("Next Month", ff_df.iloc[0]["contract"], f"{ff_df.iloc[0]['implied_rate']:.3f}%")
 
-            # ── Meeting-by-meeting table ──
-            st.markdown("##### Meeting-by-Meeting Implied Pricing")
+            # ── Monthly contract table ──
+            st.markdown("##### Monthly Contract Strip")
             tbl_header = '<div style="display:grid; grid-template-columns: 120px 100px 90px 90px 100px; gap:6px; padding:4px 8px; font-size:0.7rem; color:#8b949e; font-family:JetBrains Mono,monospace; border-bottom:1px solid #30363d; text-transform:uppercase;">'
-            tbl_header += '<span>Meeting</span><span style="text-align:right">Implied Rate</span><span style="text-align:right">Δ Rate</span><span style="text-align:right">#Cuts/Hikes</span><span style="text-align:right">Cum. Δ (bp)</span></div>'
+            tbl_header += '<span>Month</span><span style="text-align:right">Implied Rate</span><span style="text-align:right">Δ vs Now</span><span style="text-align:right">25bp Equiv.</span><span style="text-align:right">Cum. Δ (bp)</span></div>'
             st.markdown(tbl_header, unsafe_allow_html=True)
 
             # Add "Current" row
@@ -626,7 +627,7 @@ with tab2:
             st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
 
             # ── Bloomberg-style dual axis chart ──
-            st.markdown("##### Implied Overnight Rate & Number of Hikes/Cuts")
+            st.markdown("##### Implied Overnight Rate & Cumulative Easing/Tightening")
             fig_path = go.Figure()
 
             # Bars: number of cuts/hikes (right axis)
@@ -680,7 +681,7 @@ with tab2:
                     gridcolor="#21262d",
                 ),
                 yaxis2=dict(
-                    title="# Hikes/Cuts Priced In",
+                    title="25bp Equiv. Cuts (−) / Hikes (+)",
                     overlaying="y",
                     side="right",
                     showgrid=False,
