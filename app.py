@@ -220,11 +220,19 @@ def fetch_recession_dates():
         recessions.append((start, s.index[-1]))
     return recessions
 
-def add_recession_shading(fig, recessions, ymin=None, ymax=None):
-    """Add NBER recession shading to a plotly figure."""
-    for start, end in recessions:
+def add_recession_shading(fig, recessions, x_min=None, x_max=None):
+    """Add NBER recession shading to a plotly figure, filtered to data range."""
+    for rec_start, rec_end in recessions:
+        # Skip recessions entirely outside the data range
+        if x_min is not None and rec_end < x_min:
+            continue
+        if x_max is not None and rec_start > x_max:
+            continue
+        # Clip to data range
+        draw_start = max(rec_start, x_min) if x_min else rec_start
+        draw_end = min(rec_end, x_max) if x_max else rec_end
         fig.add_vrect(
-            x0=start, x1=end,
+            x0=draw_start, x1=draw_end,
             fillcolor="rgba(255,255,255,0.04)", line_width=0,
             layer="below"
         )
@@ -462,7 +470,7 @@ with tab1:
                 fig_spreads.add_hline(y=0, line_dash="dot", line_color=MUTED, line_width=1)
                 # Recession shading
                 recessions = fetch_recession_dates()
-                add_recession_shading(fig_spreads, recessions)
+                add_recession_shading(fig_spreads, recessions, x_min=spreads.index.min(), x_max=spreads.index.max())
                 # Annotate current values
                 for col in spreads.columns:
                     last_val = spreads[col].dropna().iloc[-1] if len(spreads[col].dropna()) > 0 else None
@@ -991,12 +999,20 @@ with tab5:
 
     def make_macro_chart(series_dict, title, height=350, yoy_compute=None, mom_diff=None, ylabel=""):
         """Helper to build macro time series charts."""
-        data = fetch_fred_multi(list(series_dict.values()), start=macro_start)
+        # For YoY/MoM transforms we need extra history, so fetch 2 extra years
+        needs_extra = bool(yoy_compute or mom_diff)
+        if needs_extra:
+            extra_start = (lookback_date(macro_lb) - timedelta(days=730)).strftime("%Y-%m-%d")
+        else:
+            extra_start = macro_start
+        data = fetch_fred_multi(list(series_dict.values()), start=extra_start)
         if data.empty:
             st.info(f"{title}: data unavailable")
             return
 
+        plot_start = pd.Timestamp(macro_start)
         fig = go.Figure()
+        all_dates = []
         color_idx = 0
         for label, sid in series_dict.items():
             if sid not in data.columns:
@@ -1014,9 +1030,13 @@ with tab5:
                 s = s.diff()
                 s = s.dropna()
 
+            # Trim to the actual lookback window AFTER transformation
+            s = s[s.index >= plot_start]
+
             if len(s) == 0:
                 continue
 
+            all_dates.extend(s.index.tolist())
             fig.add_trace(go.Scatter(
                 x=s.index, y=s.values, name=label,
                 line=dict(color=COLORS[color_idx % len(COLORS)], width=1.5),
@@ -1034,7 +1054,8 @@ with tab5:
             )
             color_idx += 1
 
-        add_recession_shading(fig, recessions)
+        if all_dates:
+            add_recession_shading(fig, recessions, x_min=min(all_dates), x_max=max(all_dates))
         fig.update_layout(make_layout(title, height=height))
         if ylabel:
             fig.update_layout(yaxis_title=ylabel)
