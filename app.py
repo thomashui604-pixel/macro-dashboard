@@ -581,28 +581,130 @@ with tab2:
         effr_series = fetch_fred_series("DFF")
         current_effr = effr_series.iloc[-1] if len(effr_series) > 0 else None
 
-        fig_path = go.Figure()
-        fig_path.add_trace(go.Bar(
-            x=ff_df["contract"], y=ff_df["implied_rate"],
-            marker_color=[BLUE if r < (current_effr or 99) else YELLOW for r in ff_df["implied_rate"]],
-            text=[f"{r:.3f}%" for r in ff_df["implied_rate"]],
-            textposition="outside", textfont=dict(size=10),
-            hovertemplate="%{x}<br>Implied: %{y:.3f}%<extra></extra>",
-        ))
         if current_effr is not None:
-            fig_path.add_hline(y=current_effr, line_dash="dash", line_color=RED, line_width=2,
-                              annotation_text=f"Current EFFR: {current_effr:.2f}%",
-                              annotation_font=dict(color=RED, size=11))
-            # Count implied cuts
-            last_implied = ff_df["implied_rate"].iloc[-1] if len(ff_df) > 0 else current_effr
-            cuts_bp = (current_effr - last_implied) * 100
-            n_cuts = cuts_bp / 25  # 25bp per cut
-            direction = "cuts" if n_cuts > 0 else "hikes"
-            st.markdown(f"**Market pricing:** ~{abs(n_cuts):.1f} {direction} ({abs(cuts_bp):.0f}bp) by {ff_df['contract'].iloc[-1]}")
+            # Compute per-meeting metrics
+            ff_df["rate_delta"] = ff_df["implied_rate"] - current_effr
+            ff_df["n_cuts"] = ff_df["rate_delta"] / -0.25  # positive = cuts priced
+            ff_df["cut_pct"] = ff_df["n_cuts"] * 100 / (ff_df["n_cuts"].abs().max() or 1)  # for display
 
-        fig_path.update_layout(make_layout("", height=400))
-        fig_path.update_layout(yaxis_title="Implied Rate (%)", xaxis_tickangle=-45)
-        st.plotly_chart(fig_path, use_container_width=True)
+            # ── Summary KPI strip ──
+            last_row = ff_df.iloc[-1]
+            total_cuts = last_row["n_cuts"]
+            total_bp = last_row["rate_delta"] * 100
+            direction = "cuts" if total_cuts > 0 else "hikes"
+
+            kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+            kpi1.metric("Current EFFR", f"{current_effr:.2f}%")
+            kpi2.metric("Terminal Implied", f"{last_row['implied_rate']:.3f}%", f"{total_bp:+.0f}bp")
+            kpi3.metric(f"# {direction.title()} Priced", f"{abs(total_cuts):.1f}", f"by {last_row['contract']}")
+            kpi4.metric("Next Meeting", ff_df.iloc[0]["contract"], f"{ff_df.iloc[0]['implied_rate']:.3f}%")
+
+            # ── Meeting-by-meeting table ──
+            st.markdown("##### Meeting-by-Meeting Implied Pricing")
+            tbl_header = '<div style="display:grid; grid-template-columns: 120px 100px 90px 90px 100px; gap:6px; padding:4px 8px; font-size:0.7rem; color:#8b949e; font-family:JetBrains Mono,monospace; border-bottom:1px solid #30363d; text-transform:uppercase;">'
+            tbl_header += '<span>Meeting</span><span style="text-align:right">Implied Rate</span><span style="text-align:right">Δ Rate</span><span style="text-align:right">#Cuts/Hikes</span><span style="text-align:right">Cum. Δ (bp)</span></div>'
+            st.markdown(tbl_header, unsafe_allow_html=True)
+
+            # Add "Current" row
+            cur_row = f'<div style="display:grid; grid-template-columns:120px 100px 90px 90px 100px; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
+            cur_row += f'<span style="color:#8b949e;">Current</span><span style="text-align:right; font-weight:600;">{current_effr:.3f}%</span><span style="text-align:right; color:#484f58;">—</span><span style="text-align:right; color:#484f58;">—</span><span style="text-align:right; color:#484f58;">—</span></div>'
+            st.markdown(cur_row, unsafe_allow_html=True)
+
+            for _, r in ff_df.iterrows():
+                delta_bp = r["rate_delta"] * 100
+                color = GREEN if delta_bp <= 0 else RED  # cuts = green
+                n_str = f"{r['n_cuts']:+.2f}"
+                row_html = f'<div style="display:grid; grid-template-columns:120px 100px 90px 90px 100px; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
+                row_html += f'<span style="color:#8b949e;">{r["contract"]}</span>'
+                row_html += f'<span style="text-align:right; font-weight:600;">{r["implied_rate"]:.3f}%</span>'
+                row_html += f'<span style="text-align:right; color:{color};">{delta_bp:+.0f}bp</span>'
+                row_html += f'<span style="text-align:right; color:{color};">{n_str}</span>'
+                row_html += f'<span style="text-align:right; color:{color};">{delta_bp:+.0f}</span>'
+                row_html += '</div>'
+                st.markdown(row_html, unsafe_allow_html=True)
+
+            st.markdown("<div style='margin-bottom:16px'></div>", unsafe_allow_html=True)
+
+            # ── Bloomberg-style dual axis chart ──
+            st.markdown("##### Implied Overnight Rate & Number of Hikes/Cuts")
+            fig_path = go.Figure()
+
+            # Bars: number of cuts/hikes (right axis)
+            bar_colors = [GREEN if n > 0 else RED if n < 0 else MUTED for n in ff_df["n_cuts"]]
+            fig_path.add_trace(go.Bar(
+                x=ff_df["contract"], y=ff_df["n_cuts"],
+                name="# Cuts/Hikes Priced",
+                marker_color=bar_colors, opacity=0.7,
+                yaxis="y2",
+                hovertemplate="%{x}<br>Cuts: %{y:.2f}<extra></extra>",
+            ))
+
+            # Line: implied policy rate (left axis) — plotted on top
+            fig_path.add_trace(go.Scatter(
+                x=ff_df["contract"], y=ff_df["implied_rate"],
+                name="Implied Policy Rate (%)",
+                line=dict(color=BLUE, width=3),
+                mode="lines+markers",
+                marker=dict(size=7, color=BLUE),
+                hovertemplate="%{x}<br>Rate: %{y:.3f}%<extra></extra>",
+            ))
+
+            # Add "Current" point at the left
+            fig_path.add_trace(go.Scatter(
+                x=["Current"], y=[current_effr],
+                mode="markers+text",
+                marker=dict(size=10, color="white", line=dict(color=BLUE, width=2)),
+                text=[f"{current_effr:.2f}%"], textposition="top center",
+                textfont=dict(color="white", size=11),
+                showlegend=False,
+                hovertemplate="Current EFFR: %{y:.3f}%<extra></extra>",
+            ))
+
+            # Horizontal line at current EFFR
+            fig_path.add_hline(y=current_effr, line_dash="solid", line_color="rgba(255,255,255,0.3)", line_width=1)
+
+            # Update with dual y-axis layout
+            fig_path.update_layout(make_layout("", height=450))
+            fig_path.update_layout(
+                xaxis=dict(
+                    tickangle=-45,
+                    categoryorder="array",
+                    categoryarray=["Current"] + ff_df["contract"].tolist(),
+                    gridcolor="#21262d",
+                ),
+                yaxis=dict(
+                    title="Implied Policy Rate (%)",
+                    side="left",
+                    gridcolor="#21262d",
+                ),
+                yaxis2=dict(
+                    title="# Hikes/Cuts Priced In",
+                    overlaying="y",
+                    side="right",
+                    showgrid=False,
+                    zeroline=True,
+                    zerolinecolor="rgba(255,255,255,0.15)",
+                ),
+                legend=dict(
+                    orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0,
+                    font=dict(size=10),
+                ),
+                bargap=0.3,
+            )
+            st.plotly_chart(fig_path, use_container_width=True)
+
+        else:
+            # No EFFR — simple bar chart fallback
+            fig_path = go.Figure()
+            fig_path.add_trace(go.Bar(
+                x=ff_df["contract"], y=ff_df["implied_rate"],
+                marker_color=BLUE,
+                text=[f"{r:.3f}%" for r in ff_df["implied_rate"]],
+                textposition="outside",
+            ))
+            fig_path.update_layout(make_layout("", height=400))
+            fig_path.update_layout(yaxis_title="Implied Rate (%)", xaxis_tickangle=-45)
+            st.plotly_chart(fig_path, use_container_width=True)
 
     # ── FOMC Dot Plot Reference ──
     st.markdown("#### FOMC SEP Median Dots vs Market Pricing")
