@@ -1100,14 +1100,14 @@ with tab5:
     act_col1, act_col2 = st.columns(2)
     with act_col1:
         make_macro_chart(
-            {"Real GDP YoY": "GDPC1"},
-            "Real GDP (YoY %)", yoy_compute=["GDPC1"], ylabel="%"
+            {"Real GDP (QoQ% Ann.)": "A191RL1Q225SBEA"},
+            "Real GDP (QoQ % Annualized)", ylabel="%"
         )
     with act_col2:
-        make_macro_chart({"LEI": "USSLIND"}, "Conference Board LEI", ylabel="Index")
+        make_macro_chart({"Industrial Production": "INDPRO"}, "Industrial Production Index", ylabel="Index")
     act_col3, act_col4 = st.columns(2)
     with act_col3:
-        make_macro_chart({"ISM Mfg PMI": "NAPM"}, "ISM Manufacturing PMI", ylabel="Index")
+        make_macro_chart({"Mfg Production": "IPMAN"}, "Industrial Production: Manufacturing", ylabel="Index")
     with act_col4:
         make_macro_chart({"CFNAI": "CFNAI"}, "Chicago Fed National Activity Index", ylabel="Index")
 
