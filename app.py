@@ -943,6 +943,9 @@ with tab4:
             vix_hist = yf.Ticker("^VIX").history(period="2y", auto_adjust=True)
             if spx.empty or vix_hist.empty:
                 return pd.DataFrame()
+            # Strip timezones so indexes align (SPX=New_York, VIX=Chicago)
+            spx.index = spx.index.tz_localize(None) if spx.index.tz else spx.index
+            vix_hist.index = vix_hist.index.tz_localize(None) if vix_hist.index.tz else vix_hist.index
             # Realized vol: 20-day annualized
             returns = spx["Close"].pct_change()
             realized = returns.rolling(20).std() * np.sqrt(252) * 100
