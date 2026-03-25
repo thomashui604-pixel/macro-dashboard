@@ -584,14 +584,14 @@ with tab2:
         if current_effr is not None:
             # Compute per-meeting metrics
             ff_df["rate_delta"] = ff_df["implied_rate"] - current_effr
-            ff_df["n_cuts"] = ff_df["rate_delta"] / -0.25  # positive = cuts priced
+            ff_df["n_cuts"] = ff_df["rate_delta"] / 0.25  # negative = cuts, positive = hikes
             ff_df["cut_pct"] = ff_df["n_cuts"] * 100 / (ff_df["n_cuts"].abs().max() or 1)  # for display
 
             # ── Summary KPI strip ──
             last_row = ff_df.iloc[-1]
             total_cuts = last_row["n_cuts"]
             total_bp = last_row["rate_delta"] * 100
-            direction = "cuts" if total_cuts > 0 else "hikes"
+            direction = "cuts" if total_cuts < 0 else "hikes"
 
             kpi1, kpi2, kpi3, kpi4 = st.columns(4)
             kpi1.metric("Current EFFR", f"{current_effr:.2f}%")
@@ -630,7 +630,7 @@ with tab2:
             fig_path = go.Figure()
 
             # Bars: number of cuts/hikes (right axis)
-            bar_colors = [GREEN if n > 0 else RED if n < 0 else MUTED for n in ff_df["n_cuts"]]
+            bar_colors = [GREEN if n < 0 else RED if n > 0 else MUTED for n in ff_df["n_cuts"]]
             fig_path.add_trace(go.Bar(
                 x=ff_df["contract"], y=ff_df["n_cuts"],
                 name="# Cuts/Hikes Priced",
