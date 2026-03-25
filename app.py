@@ -631,12 +631,14 @@ with tab2:
 
             # Bars: number of cuts/hikes (right axis)
             bar_colors = [GREEN if n < 0 else RED if n > 0 else MUTED for n in ff_df["n_cuts"]]
+            bar_hover = [f"{c}<br>{'Cuts' if n < 0 else 'Hikes' if n > 0 else 'No change'}: {abs(n):.2f}" for c, n in zip(ff_df["contract"], ff_df["n_cuts"])]
             fig_path.add_trace(go.Bar(
                 x=ff_df["contract"], y=ff_df["n_cuts"],
                 name="# Cuts/Hikes Priced",
                 marker_color=bar_colors, opacity=0.7,
                 yaxis="y2",
-                hovertemplate="%{x}<br>Cuts: %{y:.2f}<extra></extra>",
+                hovertext=bar_hover,
+                hovertemplate="%{hovertext}<extra></extra>",
             ))
 
             # Line: implied policy rate (left axis) — plotted on top
