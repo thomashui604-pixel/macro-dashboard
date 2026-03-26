@@ -1311,6 +1311,45 @@ with tab5:
         "5Y5Y Forward Inflation Expectation", ylabel="%"
     )
 
+    # ── CPI Component Breakdown ──
+    st.markdown("#### CPI Component Breakdown")
+    make_macro_chart(
+        {
+            "Food": "CUSR0000SAF1",
+            "Energy": "CPIENGSL",
+            "Shelter": "CUSR0000SAH1",
+            "Core Goods": "CUSR0000SACL1E",
+            "Services": "CUSR0000SAS",
+        },
+        "CPI Major Components (YoY %)",
+        height=380,
+        yoy_compute=["CUSR0000SAF1", "CPIENGSL", "CUSR0000SAH1", "CUSR0000SACL1E", "CUSR0000SAS"],
+        ylabel="%",
+    )
+    cpi_col1, cpi_col2 = st.columns(2)
+    with cpi_col1:
+        make_macro_chart(
+            {
+                "Shelter": "CUSR0000SAH1",
+                "Owners' Equiv. Rent": "CUSR0000SEHA",
+                "Rent of Primary Res.": "CUSR0000SAS11",
+            },
+            "Shelter Components (YoY %)",
+            yoy_compute=["CUSR0000SAH1", "CUSR0000SEHA", "CUSR0000SAS11"],
+            ylabel="%",
+        )
+    with cpi_col2:
+        make_macro_chart(
+            {
+                "Used Cars & Trucks": "CUSR0000SETA02",
+                "Medical Care": "CPIMEDSL",
+                "Apparel": "CPIAPPSL",
+            },
+            "Selected CPI Components (YoY %)",
+            yoy_compute=["CUSR0000SETA02", "CPIMEDSL", "CPIAPPSL"],
+            ylabel="%",
+        )
+
     # ── Labor Market ──
     st.markdown("#### Labor Market")
     labor_col1, labor_col2 = st.columns(2)
