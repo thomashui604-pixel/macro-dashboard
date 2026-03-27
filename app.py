@@ -356,12 +356,13 @@ st.markdown(render_kpi_strip(kpi_data), unsafe_allow_html=True)
 # ─────────────────────────────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📈 Rates & Curve",
     "🏛 Policy Path",
     "🌍 Cross-Asset",
     "📊 VIX & Vol",
     "📋 Macro Data",
+    "🏗 Sector Analysis",
 ])
 
 # ═════════════════════════════════════════════════════════════════════
@@ -1395,6 +1396,324 @@ with tab5:
             {"HY OAS": "BAMLH0A0HYM2", "IG OAS": "BAMLC0A0CM"},
             "Credit Spreads (OAS)", ylabel="Basis Points"
         )
+
+
+# ═════════════════════════════════════════════════════════════════════
+# TAB 6 — SECTOR ANALYSIS
+# ═════════════════════════════════════════════════════════════════════
+with tab6:
+    # ── Constants ──
+    SECTOR_ETFS = {
+        "Technology":       "XLK",
+        "Health Care":      "XLV",
+        "Financials":       "XLF",
+        "Cons. Discr.":     "XLY",
+        "Comm. Services":   "XLC",
+        "Industrials":      "XLI",
+        "Cons. Staples":    "XLP",
+        "Energy":           "XLE",
+        "Real Estate":      "XLRE",
+        "Utilities":        "XLU",
+        "Materials":        "XLB",
+    }
+
+    # Approximate S&P 500 GICS sector weights (~Q1 2025)
+    SECTOR_WEIGHTS = {
+        "XLK": 0.295, "XLV": 0.115, "XLF": 0.135, "XLY": 0.100,
+        "XLC": 0.090, "XLI": 0.085, "XLP": 0.060, "XLE": 0.040,
+        "XLRE": 0.025, "XLU": 0.030, "XLB": 0.025,
+    }
+
+    SECTOR_COLORS = [
+        "#58a6ff", "#3fb950", "#f85149", "#d29922",
+        "#bc8cff", "#39d2c0", "#f0883e", "#ff7b72",
+        "#a5d6ff", "#7ee787", "#ffa657",
+    ]
+
+    @st.cache_data(ttl=3600, show_spinner=False)
+    def fetch_sector_data():
+        import yfinance as yf_local
+        tickers = list(SECTOR_ETFS.values()) + ["^GSPC"]
+        try:
+            data = yf_local.download(
+                tickers, period="2y", interval="1d",
+                auto_adjust=True, progress=False, threads=True,
+            )
+            if isinstance(data.columns, pd.MultiIndex):
+                closes = data["Close"]
+            else:
+                closes = data[["Close"]]
+            closes = closes.dropna(how="all")
+            if closes.index.tz is not None:
+                closes.index = closes.index.tz_localize(None)
+            return closes
+        except Exception:
+            return pd.DataFrame()
+
+    sector_closes = fetch_sector_data()
+
+    if sector_closes.empty:
+        st.warning("⚠️ Sector ETF data unavailable.")
+    else:
+        # ── Controls ──
+        sec_lb_col, _ = st.columns([1, 4])
+        with sec_lb_col:
+            sector_lb = st.selectbox(
+                "Lookback", ["1Y", "2Y", "5Y"],
+                index=0,
+                key="sector_lb",
+            )
+        lb_start = lookback_date(sector_lb)
+
+        # ── Section 1: Contribution Stacked Bar ──
+        st.markdown("#### S&P 500 Sector Performance")
+
+        # Compute weighted contributions for each period
+        now_date = sector_closes.index[-1]
+        period_starts = {
+            "1W":  now_date - timedelta(days=7),
+            "1M":  now_date - timedelta(days=30),
+            "3M":  now_date - timedelta(days=91),
+            "YTD": pd.Timestamp(now_date.year, 1, 1),
+        }
+        period_raw = {p: {} for p in period_starts}
+        period_wgt = {p: {} for p in period_starts}
+        for pname, pstart in period_starts.items():
+            window = sector_closes[sector_closes.index >= pstart]
+            if window.empty:
+                continue
+            base_row = window.iloc[0]
+            for sname, ticker in SECTOR_ETFS.items():
+                if ticker in window.columns:
+                    b = base_row.get(ticker, float("nan"))
+                    c = window[ticker].iloc[-1]
+                    if b and b != 0 and not pd.isna(b) and not pd.isna(c):
+                        raw = (c / b - 1) * 100
+                        period_raw[pname][sname] = raw
+                        period_wgt[pname][sname] = raw * SECTOR_WEIGHTS.get(ticker, 0)
+
+        fig_bar = go.Figure()
+        for i, (sname, ticker) in enumerate(SECTOR_ETFS.items()):
+            y_vals = [period_wgt[p].get(sname, 0) for p in period_starts]
+            fig_bar.add_trace(go.Bar(
+                name=sname,
+                x=list(period_starts.keys()),
+                y=y_vals,
+                marker_color=SECTOR_COLORS[i],
+                hovertemplate=f"{sname}<br>Contribution: %{{y:.2f}}%<extra></extra>",
+            ))
+        fig_bar.update_layout(
+            make_layout("Sector Contribution to S&P 500 Return", height=420),
+            barmode="relative",
+            yaxis_title="Contribution (%)",
+            xaxis_title="Period",
+        )
+
+        # Sector returns table (sorted by YTD)
+        bar_col, tbl_col = st.columns([3, 2])
+        with bar_col:
+            st.plotly_chart(fig_bar, use_container_width=True)
+        with tbl_col:
+            st.markdown("##### Sector Returns")
+            tbl_rows = []
+            for sname, ticker in SECTOR_ETFS.items():
+                row = {"Sector": sname}
+                for pname in ["1W", "1M", "3M", "YTD"]:
+                    val = period_raw[pname].get(sname)
+                    if val is not None:
+                        sign = "+" if val >= 0 else ""
+                        row[pname] = f"{sign}{val:.1f}%"
+                    else:
+                        row[pname] = "—"
+                tbl_rows.append(row)
+            # Sort by YTD
+            def _sort_key(r):
+                v = r.get("YTD", "—")
+                try:
+                    return float(v.replace("%", "").replace("+", ""))
+                except Exception:
+                    return -999
+            tbl_rows.sort(key=_sort_key, reverse=True)
+            tbl_df = pd.DataFrame(tbl_rows).set_index("Sector")
+            st.dataframe(tbl_df, use_container_width=True, height=390)
+
+        # ── Cumulative Contribution Area Chart ──
+        st.markdown("#### Cumulative Sector Contribution")
+        trimmed = sector_closes[sector_closes.index >= lb_start].copy()
+        if not trimmed.empty:
+            base_row = trimmed.iloc[0]
+            fig_area = go.Figure()
+            for i, (sname, ticker) in enumerate(SECTOR_ETFS.items()):
+                if ticker in trimmed.columns:
+                    b = base_row.get(ticker, float("nan"))
+                    if b and b != 0 and not pd.isna(b):
+                        contrib = (trimmed[ticker] / b - 1) * 100 * SECTOR_WEIGHTS.get(ticker, 0)
+                        # Convert hex to rgba for fill
+                        hex_c = SECTOR_COLORS[i].lstrip("#")
+                        r, g, b_val = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
+                        fill_color = f"rgba({r},{g},{b_val},0.6)"
+                        fig_area.add_trace(go.Scatter(
+                            x=trimmed.index, y=contrib,
+                            name=sname,
+                            mode="lines",
+                            stackgroup="sectors",
+                            line=dict(width=0.5, color=SECTOR_COLORS[i]),
+                            fillcolor=fill_color,
+                            hovertemplate=f"{sname}: %{{y:.2f}}%<extra></extra>",
+                        ))
+            # Overlay actual S&P 500 return
+            if "^GSPC" in trimmed.columns:
+                b_spx = base_row.get("^GSPC", float("nan"))
+                if b_spx and b_spx != 0 and not pd.isna(b_spx):
+                    spx_ret = (trimmed["^GSPC"] / b_spx - 1) * 100
+                    fig_area.add_trace(go.Scatter(
+                        x=trimmed.index, y=spx_ret,
+                        name="S&P 500 (actual)",
+                        mode="lines",
+                        line=dict(color="#e6edf3", width=2, dash="dot"),
+                        hovertemplate="S&P 500: %{y:.2f}%<extra></extra>",
+                    ))
+            fig_area.update_layout(
+                make_layout("Cumulative Sector Contribution to S&P 500 Return", height=420),
+                yaxis_title="Cumulative Return (%)",
+            )
+            st.plotly_chart(fig_area, use_container_width=True)
+
+        # ── Relative Rotation Graph ──
+        st.markdown("#### Relative Rotation Graph")
+        rrg_ctl_col, _ = st.columns([1, 4])
+        with rrg_ctl_col:
+            rrg_tail = st.selectbox(
+                "Tail Length (weeks)", [4, 6, 8, 12], index=1,
+                key="rrg_tail",
+            )
+
+        RRG_WINDOW = 10  # rolling window in weeks
+
+        # Weekly resample
+        weekly = sector_closes.resample("W-FRI").last().dropna(how="all")
+        benchmark_weekly = weekly.get("^GSPC")
+
+        rrg_data = {}
+        if benchmark_weekly is not None and len(benchmark_weekly) > RRG_WINDOW * 2:
+            for sname, ticker in SECTOR_ETFS.items():
+                if ticker not in weekly.columns:
+                    continue
+                sec_w = weekly[ticker].dropna()
+                bench_w = benchmark_weekly.reindex(sec_w.index).dropna()
+                sec_w = sec_w.reindex(bench_w.index)
+
+                rs = sec_w / bench_w
+                rs_sma = rs.rolling(window=RRG_WINDOW, min_periods=RRG_WINDOW).mean()
+                rs_ratio = (rs / rs_sma) * 100
+
+                rs_ratio_sma = rs_ratio.rolling(window=RRG_WINDOW, min_periods=RRG_WINDOW).mean()
+                rs_momentum = (rs_ratio / rs_ratio_sma) * 100
+
+                valid = pd.DataFrame({
+                    "rs_ratio": rs_ratio,
+                    "rs_momentum": rs_momentum,
+                }).dropna()
+
+                if len(valid) >= 2:
+                    tail_data = valid.tail(rrg_tail + 1)
+                    rrg_data[sname] = {
+                        "ticker": ticker,
+                        "rs_ratio": tail_data["rs_ratio"].tolist(),
+                        "rs_momentum": tail_data["rs_momentum"].tolist(),
+                        "dates": [d.strftime("%b %d") for d in tail_data.index],
+                    }
+
+        if rrg_data:
+            all_rs = [v for d in rrg_data.values() for v in d["rs_ratio"]]
+            all_mom = [v for d in rrg_data.values() for v in d["rs_momentum"]]
+            pad = 0.8
+            x_min = min(min(all_rs), 99.0) - pad
+            x_max = max(max(all_rs), 101.0) + pad
+            y_min = min(min(all_mom), 99.0) - pad
+            y_max = max(max(all_mom), 101.0) + pad
+
+            fig_rrg = go.Figure()
+
+            # Quadrant background shading
+            quad_fills = [
+                (100, x_max, 100, y_max, "rgba(63,185,80,0.06)"),    # Leading
+                (100, x_max, y_min, 100, "rgba(248,81,73,0.06)"),     # Weakening
+                (x_min, 100, y_min, 100, "rgba(72,79,88,0.08)"),      # Lagging
+                (x_min, 100, 100, y_max, "rgba(88,166,255,0.06)"),    # Improving
+            ]
+            for x0, x1, y0, y1, color in quad_fills:
+                fig_rrg.add_shape(
+                    type="rect", x0=x0, x1=x1, y0=y0, y1=y1,
+                    fillcolor=color, line_width=0, layer="below",
+                )
+
+            # Crosshair lines
+            fig_rrg.add_hline(y=100, line_dash="dot", line_color=MUTED, line_width=1)
+            fig_rrg.add_vline(x=100, line_dash="dot", line_color=MUTED, line_width=1)
+
+            # Quadrant labels
+            quad_labels = [
+                (x_max - pad * 0.5, y_max - pad * 0.3, "Leading",   GREEN,  "right"),
+                (x_max - pad * 0.5, y_min + pad * 0.3, "Weakening", RED,    "right"),
+                (x_min + pad * 0.5, y_min + pad * 0.3, "Lagging",   MUTED,  "left"),
+                (x_min + pad * 0.5, y_max - pad * 0.3, "Improving", BLUE,   "left"),
+            ]
+            for qx, qy, qtxt, qcolor, qanchor in quad_labels:
+                fig_rrg.add_annotation(
+                    x=qx, y=qy, text=qtxt, showarrow=False,
+                    font=dict(size=11, color=qcolor), opacity=0.6,
+                    xanchor=qanchor,
+                )
+
+            # Sector tails and current positions
+            for i, (sname, dct) in enumerate(rrg_data.items()):
+                rs_r = dct["rs_ratio"]
+                rs_m = dct["rs_momentum"]
+                color = SECTOR_COLORS[i]
+                n = len(rs_r)
+                # Tail line
+                fig_rrg.add_trace(go.Scatter(
+                    x=rs_r, y=rs_m,
+                    mode="lines+markers",
+                    name=sname,
+                    line=dict(color=color, width=1.5),
+                    marker=dict(
+                        size=[4] * (n - 1) + [11],
+                        color=[f"rgba({int(color.lstrip('#')[0:2],16)},"
+                               f"{int(color.lstrip('#')[2:4],16)},"
+                               f"{int(color.lstrip('#')[4:6],16)},0.4)"] * (n - 1) + [color],
+                        symbol=["circle"] * (n - 1) + ["diamond"],
+                        line=dict(width=0),
+                    ),
+                    customdata=dct["dates"],
+                    hovertemplate=(
+                        f"{sname}<br>"
+                        "Date: %{customdata}<br>"
+                        "RS-Ratio: %{x:.2f}<br>"
+                        "RS-Mom: %{y:.2f}<extra></extra>"
+                    ),
+                ))
+                # Label at latest point
+                fig_rrg.add_annotation(
+                    x=rs_r[-1], y=rs_m[-1],
+                    text=f" {sname}",
+                    showarrow=False, xanchor="left",
+                    font=dict(size=9, color=color),
+                )
+
+            fig_rrg.update_layout(
+                make_layout("Relative Rotation Graph — S&P 500 Sectors", height=580),
+                xaxis_title="RS-Ratio →",
+                yaxis_title="RS-Momentum →",
+                hovermode="closest",
+                xaxis=dict(range=[x_min, x_max], gridcolor="#21262d", zerolinecolor="#30363d"),
+                yaxis=dict(range=[y_min, y_max], gridcolor="#21262d", zerolinecolor="#30363d",
+                           scaleanchor="x", scaleratio=1),
+            )
+            st.plotly_chart(fig_rrg, use_container_width=True)
+        else:
+            st.info("Insufficient history for RRG calculation (need ~20+ weeks).")
 
 
 # ─────────────────────────────────────────────────────────────────────
