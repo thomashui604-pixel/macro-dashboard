@@ -1627,11 +1627,12 @@ with tab6:
         if rrg_data:
             all_rs = [v for d in rrg_data.values() for v in d["rs_ratio"]]
             all_mom = [v for d in rrg_data.values() for v in d["rs_momentum"]]
-            pad = 0.8
-            x_min = min(min(all_rs), 99.0) - pad
-            x_max = max(max(all_rs), 101.0) + pad
-            y_min = min(min(all_mom), 99.0) - pad
-            y_max = max(max(all_mom), 101.0) + pad
+            # Center axes symmetrically around (100, 100) with proportional padding
+            x_half = max(abs(max(all_rs) - 100.0), abs(min(all_rs) - 100.0), 0.8)
+            y_half = max(abs(max(all_mom) - 100.0), abs(min(all_mom) - 100.0), 0.8)
+            half = max(x_half, y_half) * 1.25  # 25% breathing room, equal on all sides
+            x_min, x_max = 100.0 - half, 100.0 + half
+            y_min, y_max = 100.0 - half, 100.0 + half
 
             fig_rrg = go.Figure()
 
@@ -1652,18 +1653,19 @@ with tab6:
             fig_rrg.add_hline(y=100, line_dash="dot", line_color=MUTED, line_width=1)
             fig_rrg.add_vline(x=100, line_dash="dot", line_color=MUTED, line_width=1)
 
-            # Quadrant labels
+            # Quadrant labels — pinned to plot corners via paper coords
             quad_labels = [
-                (x_max - pad * 0.5, y_max - pad * 0.3, "Leading",   GREEN,  "right"),
-                (x_max - pad * 0.5, y_min + pad * 0.3, "Weakening", RED,    "right"),
-                (x_min + pad * 0.5, y_min + pad * 0.3, "Lagging",   MUTED,  "left"),
-                (x_min + pad * 0.5, y_max - pad * 0.3, "Improving", BLUE,   "left"),
+                (0.98, 0.98, "Leading",   GREEN, "right", "top"),
+                (0.98, 0.02, "Weakening", RED,   "right", "bottom"),
+                (0.02, 0.02, "Lagging",   MUTED, "left",  "bottom"),
+                (0.02, 0.98, "Improving", BLUE,  "left",  "top"),
             ]
-            for qx, qy, qtxt, qcolor, qanchor in quad_labels:
+            for qx, qy, qtxt, qcolor, qanchor, qyanchor in quad_labels:
                 fig_rrg.add_annotation(
                     x=qx, y=qy, text=qtxt, showarrow=False,
+                    xref="paper", yref="paper",
                     font=dict(size=11, color=qcolor), opacity=0.6,
-                    xanchor=qanchor,
+                    xanchor=qanchor, yanchor=qyanchor,
                 )
 
             # Sector tails and current positions
@@ -1708,8 +1710,7 @@ with tab6:
                 yaxis_title="RS-Momentum →",
                 hovermode="closest",
                 xaxis=dict(range=[x_min, x_max], gridcolor="#21262d", zerolinecolor="#30363d"),
-                yaxis=dict(range=[y_min, y_max], gridcolor="#21262d", zerolinecolor="#30363d",
-                           scaleanchor="x", scaleratio=1),
+                yaxis=dict(range=[y_min, y_max], gridcolor="#21262d", zerolinecolor="#30363d"),
             )
             st.plotly_chart(fig_rrg, use_container_width=True)
         else:
