@@ -763,6 +763,7 @@ with tab2:
                         overlaying="y", side="right", showgrid=False,
                         zeroline=True, zerolinecolor="rgba(255,255,255,0.15)",
                         dtick=1,
+                        rangemode="tozero",
                     ),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=10)),
                     bargap=0.3,
