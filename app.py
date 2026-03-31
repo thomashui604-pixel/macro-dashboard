@@ -707,7 +707,7 @@ with tab2:
                 fig_fw = go.Figure()
 
                 # Bars: cumulative cuts/hikes (right axis)
-                bar_colors = ["#f0883e" for _ in fw_df["cum_moves"]]
+                bar_colors = [GREEN if v < -0.05 else RED if v > 0.05 else MUTED for v in fw_df["cum_moves"]]
                 bar_hover = []
                 for m, v in zip(fw_df["meeting"], fw_df["cum_moves"]):
                     if abs(v) < 0.05:
@@ -718,7 +718,7 @@ with tab2:
                         bar_hover.append(f"{m}<br>{v:.1f} hikes priced")
                 fig_fw.add_trace(go.Bar(
                     x=fw_df["meeting"], y=fw_df["cum_moves"],
-                    name="Cumulative Cuts/Hikes",
+                    name="# Hikes/Cuts",
                     marker_color=bar_colors, opacity=0.75,
                     yaxis="y2",
                     hovertext=bar_hover,
@@ -759,9 +759,10 @@ with tab2:
                     ),
                     yaxis=dict(title="Implied Policy Rate (%)", side="left", gridcolor="#21262d"),
                     yaxis2=dict(
-                        title="Number of Cuts/Hikes Priced In",
+                        title="# Hikes/Cuts",
                         overlaying="y", side="right", showgrid=False,
                         zeroline=True, zerolinecolor="rgba(255,255,255,0.15)",
+                        dtick=1,
                     ),
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=10)),
                     bargap=0.3,
