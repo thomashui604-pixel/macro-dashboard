@@ -637,6 +637,10 @@ with tab2:
             prob_hold = 1.0 - prob_25bp
             move_type = "cut" if delta_bp < 0 else "hike" if delta_bp > 0 else "hold"
 
+            # Cumulative change from current EFFR
+            cum_bp = (post_rate - current_effr) * 100
+            cum_moves = cum_bp / 25
+
             results.append({
                 "meeting": mtg.strftime("%b %d, %Y"),
                 "pre_rate": pre_rate,
@@ -645,6 +649,8 @@ with tab2:
                 "prob_hold": prob_hold,
                 "prob_25bp": prob_25bp,
                 "move_type": move_type,
+                "cum_bp": cum_bp,
+                "cum_moves": cum_moves,
             })
 
         return results
@@ -658,23 +664,38 @@ with tab2:
             fw_results = compute_fedwatch(contracts_dict, effr_for_fw, FOMC_DATES)
 
             if fw_results:
-                # ── Probability table ──
-                tbl_hdr = '<div style="display:grid; grid-template-columns:120px 95px 95px 85px 100px 100px; gap:6px; padding:4px 8px; font-size:0.68rem; color:#8b949e; font-family:JetBrains Mono,monospace; border-bottom:1px solid #30363d; text-transform:uppercase;">'
-                tbl_hdr += '<span>FOMC Date</span><span style="text-align:right">Pre-Rate</span><span style="text-align:right">Post-Rate</span><span style="text-align:right">Δ (bp)</span><span style="text-align:right">P(Hold)</span><span style="text-align:right">P(25bp Move)</span></div>'
+                # ── Probability table (Bloomberg style) ──
+                grid_cols = "120px 110px 110px 110px 110px"
+                tbl_hdr = f'<div style="display:grid; grid-template-columns:{grid_cols}; gap:6px; padding:4px 8px; font-size:0.68rem; color:#8b949e; font-family:JetBrains Mono,monospace; border-bottom:1px solid #30363d; text-transform:uppercase;">'
+                tbl_hdr += '<span>Meeting Date</span><span style="text-align:right">#Hikes/Cuts</span><span style="text-align:right">%Hike/Cut</span><span style="text-align:right">Δ Impl Rate</span><span style="text-align:right">Implied Rate</span></div>'
                 st.markdown(tbl_hdr, unsafe_allow_html=True)
 
                 for r in fw_results:
-                    delta_color = GREEN if r["delta_bp"] < -1 else RED if r["delta_bp"] > 1 else MUTED
+                    # #Hikes/Cuts — cumulative 25bp moves from EFFR
+                    cm = r["cum_moves"]
+                    if abs(cm) < 0.05:
+                        cum_label = "—"
+                        cum_color = MUTED
+                    elif cm < 0:
+                        cum_label = f"{abs(cm):.1f} cuts"
+                        cum_color = GREEN
+                    else:
+                        cum_label = f"{cm:.1f} hikes"
+                        cum_color = RED
+
+                    # %Hike/Cut — probability of a move at this meeting
                     move_label = f'{r["prob_25bp"]*100:.0f}% {r["move_type"]}'
                     move_color = GREEN if r["move_type"] == "cut" else RED if r["move_type"] == "hike" else MUTED
 
-                    row = f'<div style="display:grid; grid-template-columns:120px 95px 95px 85px 100px 100px; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
+                    # Delta implied rate
+                    delta_color = GREEN if r["delta_bp"] < -1 else RED if r["delta_bp"] > 1 else MUTED
+
+                    row = f'<div style="display:grid; grid-template-columns:{grid_cols}; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
                     row += f'<span style="color:#8b949e;">{r["meeting"]}</span>'
-                    row += f'<span style="text-align:right;">{r["pre_rate"]:.3f}%</span>'
-                    row += f'<span style="text-align:right; font-weight:600;">{r["post_rate"]:.3f}%</span>'
-                    row += f'<span style="text-align:right; color:{delta_color};">{r["delta_bp"]:+.1f}</span>'
-                    row += f'<span style="text-align:right;">{r["prob_hold"]*100:.0f}%</span>'
+                    row += f'<span style="text-align:right; color:{cum_color}; font-weight:600;">{cum_label}</span>'
                     row += f'<span style="text-align:right; color:{move_color}; font-weight:600;">{move_label}</span>'
+                    row += f'<span style="text-align:right; color:{delta_color};">{r["delta_bp"]:+.1f}</span>'
+                    row += f'<span style="text-align:right; font-weight:600;">{r["post_rate"]:.3f}%</span>'
                     row += '</div>'
                     st.markdown(row, unsafe_allow_html=True)
 
@@ -682,11 +703,6 @@ with tab2:
 
                 # ── FedWatch-style chart: Implied Rate + Cumulative Cuts ──
                 fw_df = pd.DataFrame(fw_results)
-
-                # Cumulative change from current EFFR at each meeting, in 25bp units
-                # No per-meeting rounding — use the running total so bars track the line
-                fw_df["cum_bp"] = (fw_df["post_rate"] - effr_for_fw) * 100
-                fw_df["cum_moves"] = fw_df["cum_bp"] / 25  # fractional 25bp units
 
                 fig_fw = go.Figure()
 
