@@ -16,6 +16,10 @@ import numpy as np
 import yfinance as yf
 from datetime import datetime, timedelta
 import requests
+import json
+import time
+import shutil
+from pathlib import Path
 import warnings
 
 warnings.filterwarnings("ignore")
@@ -122,37 +126,87 @@ def get_fred_key():
     except Exception:
         return None
 
-@st.cache_data(ttl=21600, show_spinner=False)
-def fetch_fred_series(series_id, start=None, end=None):
-    """Fetch a single FRED series via REST API."""
+# ── Disk cache for FRED data (survives reboots) ──────────────────────
+CACHE_DIR = Path("data_cache")
+
+_FRED_TTL = {
+    "DFF": 4*3600, "SOFR": 4*3600,
+    "USREC": 24*3600, "A191RL1Q225SBEA": 24*3600,
+    "DGS": 4*3600, "DFII": 4*3600, "T5Y": 4*3600, "T10Y": 4*3600,
+    "CPIAUCSL": 12*3600, "CPILFESL": 12*3600, "PCEPI": 12*3600,
+    "PCEPILFE": 12*3600, "PAYEMS": 12*3600, "UNRATE": 12*3600,
+    "JOLTS": 12*3600, "ICSA": 12*3600, "INDPRO": 12*3600,
+}
+_DEFAULT_TTL = 12 * 3600
+
+def _fred_ttl(series_id):
+    if series_id in _FRED_TTL:
+        return _FRED_TTL[series_id]
+    for prefix, ttl in _FRED_TTL.items():
+        if series_id.startswith(prefix):
+            return ttl
+    return _DEFAULT_TTL
+
+def _cache_paths(series_id, start):
+    slug = f"{series_id}__{start or 'none'}".replace("/", "-").replace(":", "-")
+    return CACHE_DIR / f"{slug}.parquet", CACHE_DIR / f"{slug}.json"
+
+def _disk_load(series_id, start):
+    pq, meta = _cache_paths(series_id, start)
+    if not pq.exists() or not meta.exists():
+        return None
+    try:
+        m = json.loads(meta.read_text())
+        if time.time() - m["fetched_at"] > _fred_ttl(series_id):
+            return None
+        return pd.read_parquet(pq)["value"]
+    except Exception:
+        return None
+
+def _disk_save(series, series_id, start):
+    try:
+        CACHE_DIR.mkdir(exist_ok=True)
+        pq, meta = _cache_paths(series_id, start)
+        series.rename("value").to_frame().to_parquet(pq)
+        meta.write_text(json.dumps({"series_id": series_id, "fetched_at": time.time()}))
+    except Exception:
+        pass
+
+def _fetch_fred_raw(series_id, start=None, end=None):
+    """Direct HTTP fetch from FRED — no caching."""
     key = get_fred_key()
     if not key:
         return pd.Series(dtype=float)
     try:
-        url = "https://api.stlouisfed.org/fred/series/observations"
-        params = {
-            "series_id": series_id,
-            "api_key": key,
-            "file_type": "json",
-            "sort_order": "asc",
-        }
+        params = {"series_id": series_id, "api_key": key,
+                  "file_type": "json", "sort_order": "asc"}
         if start:
             params["observation_start"] = start.strftime("%Y-%m-%d") if isinstance(start, datetime) else start
         if end:
             params["observation_end"] = end.strftime("%Y-%m-%d") if isinstance(end, datetime) else end
-        r = requests.get(url, params=params, timeout=15)
+        r = requests.get("https://api.stlouisfed.org/fred/series/observations",
+                         params=params, timeout=15)
         r.raise_for_status()
-        data = r.json()
-        obs = data.get("observations", [])
+        obs = r.json().get("observations", [])
         if not obs:
             return pd.Series(dtype=float)
         df = pd.DataFrame(obs)
         df["date"] = pd.to_datetime(df["date"])
         df["value"] = pd.to_numeric(df["value"], errors="coerce")
-        s = df.set_index("date")["value"].dropna()
-        return s
-    except Exception as e:
+        return df.set_index("date")["value"].dropna()
+    except Exception:
         return pd.Series(dtype=float)
+
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_fred_series(series_id, start=None, end=None):
+    """Fetch a FRED series: disk cache → FRED API fallback."""
+    cached = _disk_load(series_id, start)
+    if cached is not None:
+        return cached
+    series = _fetch_fred_raw(series_id, start, end)
+    if len(series) > 0:
+        _disk_save(series, series_id, start)
+    return series
 
 @st.cache_data(ttl=21600, show_spinner=False)
 def fetch_fred_multi(series_ids, start=None, end=None):
@@ -286,6 +340,8 @@ with st.sidebar:
     st.divider()
     if st.button("🔄 Refresh Data", use_container_width=True):
         st.cache_data.clear()
+        if CACHE_DIR.exists():
+            shutil.rmtree(CACHE_DIR)
         st.rerun()
     st.divider()
     st.caption("Data: FRED · yfinance · Treasury")
