@@ -332,6 +332,49 @@ def lookback_date(lookback_str):
 
 
 # ─────────────────────────────────────────────────────────────────────
+# AI SUMMARY (Gemini Flash)
+# ─────────────────────────────────────────────────────────────────────
+def get_gemini_key():
+    try:
+        return st.secrets["GEMINI_API_KEY"]
+    except Exception:
+        return None
+
+def ai_summary(tab_key, context_str):
+    """Show AI summary widget with manual refresh button."""
+    ss_key = f"ai_summary_{tab_key}"
+    col_btn, col_txt = st.columns([1, 6])
+    with col_btn:
+        generate = st.button("🤖 AI Summary", key=f"btn_{tab_key}")
+    if generate:
+        api_key = get_gemini_key()
+        if not api_key:
+            st.warning("Add GEMINI_API_KEY to Streamlit secrets.")
+            return
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel("gemini-2.0-flash")
+            prompt = (
+                "You are a senior macro strategist. Based on the data below, "
+                "write a 2-3 sentence market summary. Be specific with numbers. "
+                "No disclaimers or caveats.\n\n" + context_str
+            )
+            resp = model.generate_content(prompt)
+            st.session_state[ss_key] = resp.text
+        except Exception as e:
+            st.session_state[ss_key] = f"Summary unavailable: {e}"
+    if ss_key in st.session_state:
+        with col_txt:
+            st.markdown(
+                f'<div style="background:#161b22; border:1px solid #30363d; border-radius:6px; '
+                f'padding:10px 14px; font-size:0.82rem; color:#e6edf3; line-height:1.5;">'
+                f'{st.session_state[ss_key]}</div>',
+                unsafe_allow_html=True,
+            )
+
+
+# ─────────────────────────────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────────────────────────────
 with st.sidebar:
@@ -444,6 +487,19 @@ with tab1:
     if yield_df.empty:
         st.warning("⚠️ Yield curve data unavailable. Check FRED API key.")
     else:
+        # ── AI Summary ──
+        if not yield_df.empty:
+            _row = yield_df.iloc[-1]
+            _prev = yield_df.iloc[-6] if len(yield_df) > 5 else _row
+            _ctx = "US Treasury Yields (current vs 1 week ago):\n"
+            for t in ["2Y", "5Y", "10Y", "30Y"]:
+                if t in _row.index:
+                    chg = _row[t] - _prev.get(t, _row[t])
+                    _ctx += f"  {t}: {_row[t]:.3f}% ({chg:+.0f}bp)\n"
+            if "2Y" in _row.index and "10Y" in _row.index:
+                _ctx += f"  2s10s spread: {(_row['10Y'] - _row['2Y'])*100:.0f}bp\n"
+            ai_summary("rates", _ctx)
+
         # ── Yield Curve Chart ──
         st.markdown("#### US Treasury Par Yield Curve")
         fig_curve = go.Figure()
@@ -625,6 +681,17 @@ with tab2:
 
     ff_df = fetch_ff_futures()
     _effr_tab2 = fetch_fred_series("DFF")
+
+    # ── AI Summary ──
+    _policy_ctx = ""
+    if len(_effr_tab2) > 0:
+        _policy_ctx += f"Current EFFR: {_effr_tab2.iloc[-1]:.2f}%\n"
+    if not ff_df.empty:
+        _policy_ctx += "Fed Funds Futures strip (implied rates):\n"
+        for _, r in ff_df.head(6).iterrows():
+            _policy_ctx += f"  {r['contract']}: {r['implied_rate']:.3f}%\n"
+    if _policy_ctx:
+        ai_summary("policy", _policy_ctx)
 
     # ── FedWatch-Style Per-Meeting Probabilities ──
     st.markdown("#### FOMC Meeting Probabilities — FedWatch Style")
@@ -968,6 +1035,21 @@ with tab3:
     if not cross_data.empty and cross_data.index.tz is not None:
         cross_data.index = cross_data.index.tz_localize(None)
 
+    # ── AI Summary ──
+    if not cross_data.empty:
+        _ca_ctx = "Cross-asset snapshot (1D change):\n"
+        _key_assets = {"S&P 500": "^GSPC", "Nasdaq": "^NDX", "VIX": "^VIX",
+                       "Gold": "GC=F", "WTI Crude": "CL=F", "DXY": "DX-Y.NYB",
+                       "TLT (20Y+)": "TLT", "HYG (HY)": "HYG"}
+        for name, tk in _key_assets.items():
+            if tk in cross_data.columns:
+                s = cross_data[tk].dropna()
+                if len(s) >= 2:
+                    prc = s.iloc[-1]
+                    chg = (s.iloc[-1] / s.iloc[-2] - 1) * 100
+                    _ca_ctx += f"  {name}: {prc:.2f} ({chg:+.2f}%)\n"
+        ai_summary("cross_asset", _ca_ctx)
+
     def calc_asset_stats(df, ticker):
         """Calculate price, changes, sparkline for a ticker."""
         if df.empty or ticker not in df.columns:
@@ -1076,9 +1158,6 @@ with tab3:
 # TAB 4 — VIX & VOL
 # ═════════════════════════════════════════════════════════════════════
 with tab4:
-    # ── VIX Term Structure ──
-    st.markdown("#### VIX Term Structure")
-
     @st.cache_data(ttl=3600, show_spinner=False)
     def fetch_vix_data():
         tickers = ["^VIX", "^VIX3M", "^VIX6M", "^MOVE"]
@@ -1094,6 +1173,21 @@ with tab4:
         return results
 
     vix_data = fetch_vix_data()
+
+    # ── AI Summary ──
+    _vol_ctx = "Volatility snapshot:\n"
+    for label, tk in [("VIX", "^VIX"), ("VIX3M", "^VIX3M"), ("VIX6M", "^VIX6M"), ("MOVE", "^MOVE")]:
+        if tk in vix_data and len(vix_data[tk]) > 0:
+            cur = vix_data[tk].iloc[-1]
+            prev = vix_data[tk].iloc[-6] if len(vix_data[tk]) > 5 else cur
+            _vol_ctx += f"  {label}: {cur:.1f} (1W chg: {cur - prev:+.1f})\n"
+    if "^VIX" in vix_data and "^VIX3M" in vix_data and len(vix_data["^VIX"]) > 0 and len(vix_data["^VIX3M"]) > 0:
+        ratio = vix_data["^VIX3M"].iloc[-1] / vix_data["^VIX"].iloc[-1]
+        _vol_ctx += f"  VIX3M/VIX ratio: {ratio:.2f} ({'contango' if ratio > 1 else 'backwardation'})\n"
+    ai_summary("vol", _vol_ctx)
+
+    # ── VIX Term Structure ──
+    st.markdown("#### VIX Term Structure")
 
     # Term structure bar chart
     vix_current = {}
@@ -1309,6 +1403,21 @@ with tab5:
         macro_lb = st.selectbox("Lookback", ["1Y", "2Y", "5Y", "10Y"], index=["1Y", "2Y", "5Y", "10Y"].index(global_lookback), key="macro_lb")
     macro_start = lookback_date(macro_lb).strftime("%Y-%m-%d")
     recessions = fetch_recession_dates()
+
+    # ── AI Summary ──
+    _macro_ctx = "Latest US macro data:\n"
+    _macro_series = [("CPI YoY", "CPIAUCSL"), ("Core CPI YoY", "CPILFESL"),
+                     ("Unemployment", "UNRATE"), ("EFFR", "DFF")]
+    for label, sid in _macro_series:
+        s = fetch_fred_series(sid)
+        if len(s) > 12:
+            cur = s.iloc[-1]
+            if sid in ["CPIAUCSL", "CPILFESL"]:
+                yoy = (cur / s.iloc[-13] - 1) * 100 if s.iloc[-13] != 0 else 0
+                _macro_ctx += f"  {label}: {yoy:.1f}%\n"
+            else:
+                _macro_ctx += f"  {label}: {cur:.2f}%\n"
+    ai_summary("macro", _macro_ctx)
 
     def make_macro_chart(series_dict, title, height=350, yoy_compute=None, mom_diff=None, ylabel=""):
         """Helper to build macro time series charts."""
@@ -1562,6 +1671,20 @@ with tab6:
     if sector_closes.empty:
         st.warning("⚠️ Sector ETF data unavailable.")
     else:
+        # ── AI Summary ──
+        _sec_ctx = "S&P 500 sector performance (1M returns):\n"
+        for sname, ticker in SECTOR_ETFS.items():
+            if ticker in sector_closes.columns:
+                s = sector_closes[ticker].dropna()
+                if len(s) > 21:
+                    chg = (s.iloc[-1] / s.iloc[-22] - 1) * 100
+                    _sec_ctx += f"  {sname}: {chg:+.1f}%\n"
+        if "^GSPC" in sector_closes.columns:
+            sp = sector_closes["^GSPC"].dropna()
+            if len(sp) > 21:
+                _sec_ctx += f"  S&P 500: {(sp.iloc[-1]/sp.iloc[-22]-1)*100:+.1f}%\n"
+        ai_summary("sectors", _sec_ctx)
+
         # ── Sector Returns Table ──
         st.markdown("#### Sector Returns")
         now_date = sector_closes.index[-1]
