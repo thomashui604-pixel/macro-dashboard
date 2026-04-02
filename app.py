@@ -354,7 +354,7 @@ def ai_summary(tab_key, context_str):
         try:
             import google.generativeai as genai
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel("gemini-2.0-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
             prompt = (
                 "You are a senior macro strategist. Based on the data below, "
                 "write a 2-3 sentence market summary. Be specific with numbers. "
