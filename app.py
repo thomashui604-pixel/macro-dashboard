@@ -97,8 +97,8 @@ PLOTLY_LAYOUT = dict(
     paper_bgcolor="#0e1117",
     plot_bgcolor="#0e1117",
     font=dict(family="JetBrains Mono, monospace", size=11, color="#e6edf3"),
-    margin=dict(l=50, r=30, t=40, b=40),
-    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(size=10)),
+    margin=dict(l=50, r=30, t=60, b=40),
+    legend=dict(orientation="h", yanchor="bottom", y=1.06, xanchor="right", x=1, font=dict(size=10)),
     xaxis=dict(gridcolor="#21262d", zerolinecolor="#30363d"),
     yaxis=dict(gridcolor="#21262d", zerolinecolor="#30363d"),
     hovermode="x unified",
@@ -826,7 +826,7 @@ with tab2:
                         dtick=1,
                         rangemode="tozero",
                     ),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0, font=dict(size=10)),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.06, xanchor="left", x=0, font=dict(size=10)),
                     bargap=0.3,
                 )
                 st.plotly_chart(fig_fw, use_container_width=True)
