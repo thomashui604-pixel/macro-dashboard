@@ -1645,49 +1645,59 @@ with tab6:
             st.dataframe(tbl_df, use_container_width=True, height=390)
 
         # ── Cumulative Contribution Area Chart ──
-        st.markdown("#### Rolling Sector Contribution")
-        roll_col, _ = st.columns([1, 4])
-        with roll_col:
-            roll_window = st.selectbox(
-                "Rolling Window", ["1W", "1M", "3M", "6M"],
-                index=1, key="sector_roll_window",
+        st.markdown("#### Sector Contribution to S&P 500")
+        bar_col, _ = st.columns([1, 4])
+        with bar_col:
+            bar_window = st.selectbox(
+                "Bar Period", ["1W", "2W", "1M", "3M"],
+                index=2, key="sector_bar_window",
             )
-        roll_days = {"1W": 5, "1M": 21, "3M": 63, "6M": 126}[roll_window]
+        resample_rule = {"1W": "W-FRI", "2W": "2W-FRI", "1M": "ME", "3M": "QE"}[bar_window]
 
         trimmed = sector_closes[sector_closes.index >= lb_start].copy()
-        if not trimmed.empty:
-            fig_area = go.Figure()
+        if not trimmed.empty and "^GSPC" in trimmed.columns:
+            # Cumulative S&P 500 return line
+            spx_base = trimmed["^GSPC"].iloc[0]
+            spx_cum = (trimmed["^GSPC"] / spx_base - 1) * 100
+
+            # Resample to period boundaries for bar contributions
+            period_closes = trimmed.resample(resample_rule).last().dropna(how="all")
+
+            fig_contrib = go.Figure()
+
+            # Stacked bars: sector contribution per period
             for i, (sname, ticker) in enumerate(SECTOR_ETFS.items()):
-                if ticker in trimmed.columns:
-                    roll_ret = trimmed[ticker].pct_change(roll_days) * 100
-                    contrib = roll_ret * SECTOR_WEIGHTS.get(ticker, 0)
-                    hex_c = SECTOR_COLORS[i].lstrip("#")
-                    r, g, b_val = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
-                    fill_color = f"rgba({r},{g},{b_val},0.6)"
-                    fig_area.add_trace(go.Scatter(
-                        x=trimmed.index, y=contrib,
+                if ticker in period_closes.columns:
+                    pret = period_closes[ticker].pct_change() * 100
+                    contrib = pret * SECTOR_WEIGHTS.get(ticker, 0)
+                    fig_contrib.add_trace(go.Bar(
+                        x=period_closes.index[1:], y=contrib.iloc[1:],
                         name=sname,
-                        mode="lines",
-                        stackgroup="sectors",
-                        line=dict(width=0.5, color=SECTOR_COLORS[i]),
-                        fillcolor=fill_color,
+                        marker_color=SECTOR_COLORS[i],
+                        opacity=0.85,
                         hovertemplate=f"{sname}: %{{y:.2f}}%<extra></extra>",
                     ))
-            # Overlay actual S&P 500 rolling return
-            if "^GSPC" in trimmed.columns:
-                spx_roll = trimmed["^GSPC"].pct_change(roll_days) * 100
-                fig_area.add_trace(go.Scatter(
-                    x=trimmed.index, y=spx_roll,
-                    name="S&P 500 (actual)",
-                    mode="lines",
-                    line=dict(color="#e6edf3", width=2, dash="dot"),
-                    hovertemplate="S&P 500: %{y:.2f}%<extra></extra>",
-                ))
-            fig_area.update_layout(
-                make_layout(f"Rolling {roll_window} Sector Contribution to S&P 500 Return", height=420),
-                yaxis_title=f"Rolling {roll_window} Return (%)",
+
+            # S&P 500 cumulative return line (secondary y-axis)
+            fig_contrib.add_trace(go.Scatter(
+                x=trimmed.index, y=spx_cum,
+                name="S&P 500 (cum.)",
+                mode="lines",
+                line=dict(color="#e6edf3", width=2.5),
+                yaxis="y2",
+                hovertemplate="S&P 500: %{y:.2f}%<extra></extra>",
+            ))
+
+            fig_contrib.update_layout(
+                make_layout(f"S&P 500 Return & {bar_window} Sector Attribution", height=460),
+                barmode="relative",
+                yaxis=dict(title=f"{bar_window} Contribution (%)", gridcolor="#21262d"),
+                yaxis2=dict(
+                    title="Cumulative S&P 500 (%)", overlaying="y", side="right",
+                    showgrid=False, gridcolor="#21262d",
+                ),
             )
-            st.plotly_chart(fig_area, use_container_width=True)
+            st.plotly_chart(fig_contrib, use_container_width=True)
 
         # ── Relative Rotation Graph ──
         st.markdown("#### Relative Rotation Graph")
