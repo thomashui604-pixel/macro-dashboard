@@ -1716,12 +1716,11 @@ with tab6:
         if rrg_data:
             all_rs = [v for d in rrg_data.values() for v in d["rs_ratio"]]
             all_mom = [v for d in rrg_data.values() for v in d["rs_momentum"]]
-            # Center axes symmetrically around (100, 100) with proportional padding
-            x_half = max(abs(max(all_rs) - 100.0), abs(min(all_rs) - 100.0), 0.8)
-            y_half = max(abs(max(all_mom) - 100.0), abs(min(all_mom) - 100.0), 0.8)
-            half = max(x_half, y_half) * 1.25  # 25% breathing room, equal on all sides
-            x_min, x_max = 100.0 - half, 100.0 + half
-            y_min, y_max = 100.0 - half, 100.0 + half
+            # Center axes symmetrically around (100, 100), fit to data spread
+            x_half = max(abs(max(all_rs) - 100.0), abs(min(all_rs) - 100.0), 0.5) * 1.15
+            y_half = max(abs(max(all_mom) - 100.0), abs(min(all_mom) - 100.0), 0.5) * 1.15
+            x_min, x_max = 100.0 - x_half, 100.0 + x_half
+            y_min, y_max = 100.0 - y_half, 100.0 + y_half
 
             fig_rrg = go.Figure()
 
