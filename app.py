@@ -1678,12 +1678,15 @@ with tab6:
                         hovertemplate=f"{sname}: %{{y:.2f}}%<extra></extra>",
                     ))
 
-            # S&P 500 cumulative return line (secondary y-axis)
+            # S&P 500 cumulative return at period boundaries (secondary y-axis)
+            spx_period = period_closes["^GSPC"].dropna()
+            spx_cum_period = (spx_period / spx_base - 1) * 100
             fig_contrib.add_trace(go.Scatter(
-                x=trimmed.index, y=spx_cum,
+                x=spx_cum_period.index[1:], y=spx_cum_period.iloc[1:],
                 name="S&P 500 (cum.)",
-                mode="lines",
+                mode="lines+markers",
                 line=dict(color="#e6edf3", width=2.5),
+                marker=dict(size=5, color="#e6edf3"),
                 yaxis="y2",
                 hovertemplate="S&P 500: %{y:.2f}%<extra></extra>",
             ))
