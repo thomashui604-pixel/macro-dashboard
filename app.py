@@ -1665,28 +1665,29 @@ with tab6:
 
             fig_contrib = go.Figure()
 
-            # Stacked bars: sector contribution per period
+            # Stacked bars: cumulative sector contribution at each period
             for i, (sname, ticker) in enumerate(SECTOR_ETFS.items()):
                 if ticker in period_closes.columns:
-                    pret = period_closes[ticker].pct_change() * 100
-                    contrib = pret * SECTOR_WEIGHTS.get(ticker, 0)
-                    fig_contrib.add_trace(go.Bar(
-                        x=period_closes.index[1:], y=contrib.iloc[1:],
-                        name=sname,
-                        marker_color=SECTOR_COLORS[i],
-                        opacity=0.85,
-                        hovertemplate=f"{sname}: %{{y:.2f}}%<extra></extra>",
-                    ))
+                    sec_base = period_closes[ticker].iloc[0]
+                    if sec_base and sec_base != 0 and not pd.isna(sec_base):
+                        cum_contrib = (period_closes[ticker] / sec_base - 1) * 100 * SECTOR_WEIGHTS.get(ticker, 0)
+                        fig_contrib.add_trace(go.Bar(
+                            x=period_closes.index[1:], y=cum_contrib.iloc[1:],
+                            name=sname,
+                            marker_color=SECTOR_COLORS[i],
+                            opacity=0.85,
+                            hovertemplate=f"{sname}: %{{y:.2f}}%<extra></extra>",
+                        ))
 
-            # S&P 500 cumulative return at period boundaries (secondary y-axis)
+            # S&P 500 cumulative return line at period boundaries
             spx_period = period_closes["^GSPC"].dropna()
             spx_cum_period = (spx_period / spx_base - 1) * 100
             fig_contrib.add_trace(go.Scatter(
                 x=spx_cum_period.index[1:], y=spx_cum_period.iloc[1:],
-                name="S&P 500 (cum.)",
+                name="S&P 500",
                 mode="lines+markers",
                 line=dict(color="#e6edf3", width=2.5),
-                marker=dict(size=5, color="#e6edf3"),
+                marker=dict(size=4, color="#e6edf3"),
                 hovertemplate="S&P 500: %{y:.2f}%<extra></extra>",
             ))
 
