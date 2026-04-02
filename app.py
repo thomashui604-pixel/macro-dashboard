@@ -1617,15 +1617,24 @@ with tab6:
 
         # ── Cumulative Contribution Area Chart ──
         st.markdown("#### Sector Contribution to S&P 500")
-        bar_col, _ = st.columns([1, 4])
+        bar_col, range_col, _ = st.columns([1, 1, 3])
         with bar_col:
             bar_window = st.selectbox(
                 "Bar Period", ["1W", "2W", "1M", "3M"],
                 index=2, key="sector_bar_window",
             )
+        with range_col:
+            contrib_range = st.selectbox(
+                "Range", ["3M", "6M", "YTD", "1Y", "2Y"],
+                index=2, key="sector_contrib_range",
+            )
         resample_rule = {"1W": "W-FRI", "2W": "2W-FRI", "1M": "ME", "3M": "QE"}[bar_window]
+        if contrib_range == "YTD":
+            contrib_start = pd.Timestamp(datetime.now().year, 1, 1)
+        else:
+            contrib_start = lookback_date(contrib_range)
 
-        trimmed = sector_closes[sector_closes.index >= lb_start].copy()
+        trimmed = sector_closes[sector_closes.index >= contrib_start].copy()
         if not trimmed.empty and "^GSPC" in trimmed.columns:
             # Cumulative S&P 500 return line
             spx_base = trimmed["^GSPC"].iloc[0]
