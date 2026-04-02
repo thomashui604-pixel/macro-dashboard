@@ -642,7 +642,7 @@ with tab2:
 
     def compute_fedwatch(contracts_dict, current_effr, fomc_dates_raw):
         """
-        CME FedWatch interpolation.
+        CME FedWatch interpolation — chained post-rates.
         contracts_dict: {"Mar 2026": 3.64, ...} implied rates from FF futures
         Returns list of dicts with per-meeting implied rates and probabilities.
         """
@@ -654,6 +654,7 @@ with tab2:
 
         month_key = lambda d: f"{d.strftime('%b')} {d.year}"
         results = []
+        prev_post_rate = None  # chain from prior meeting
 
         for mtg in fomc_dates:
             mk = month_key(mtg)
@@ -666,15 +667,18 @@ with tab2:
             days_before = effective_day - 1
             days_after = days_in_month - days_before
 
-            # Pre-meeting rate: prior month's contract
-            prior_month = mtg.month - 1 if mtg.month > 1 else 12
-            prior_year = mtg.year if mtg.month > 1 else mtg.year - 1
-            prior_key = month_key(date(prior_year, prior_month, 1))
-
-            if prior_key in contracts_dict:
-                pre_rate = contracts_dict[prior_key]
+            # Pre-meeting rate: use chained post-rate from previous meeting if
+            # available, otherwise fall back to prior month contract or EFFR
+            if prev_post_rate is not None:
+                pre_rate = prev_post_rate
             else:
-                pre_rate = current_effr
+                prior_month = mtg.month - 1 if mtg.month > 1 else 12
+                prior_year = mtg.year if mtg.month > 1 else mtg.year - 1
+                prior_key = month_key(date(prior_year, prior_month, 1))
+                if prior_key in contracts_dict:
+                    pre_rate = contracts_dict[prior_key]
+                else:
+                    pre_rate = current_effr
 
             # If meeting is very late in month (<=2 days after), the month's
             # contract is dominated by pre-meeting rate — use next month instead
@@ -686,12 +690,13 @@ with tab2:
             else:
                 post_rate = (month_rate * days_in_month - pre_rate * days_before) / days_after
 
+            prev_post_rate = post_rate
             delta_bp = (post_rate - pre_rate) * 100
 
             # Probability of 25bp move vs hold
             prob_25bp = min(abs(delta_bp) / 25, 1.0)
             prob_hold = 1.0 - prob_25bp
-            move_type = "cut" if delta_bp < 0 else "hike" if delta_bp > 0 else "hold"
+            move_type = "cut" if delta_bp < -1 else "hike" if delta_bp > 1 else "hold"
 
             # Cumulative change from current EFFR
             cum_bp = (post_rate - current_effr) * 100
