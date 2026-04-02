@@ -1645,44 +1645,47 @@ with tab6:
             st.dataframe(tbl_df, use_container_width=True, height=390)
 
         # ── Cumulative Contribution Area Chart ──
-        st.markdown("#### Cumulative Sector Contribution")
+        st.markdown("#### Rolling Sector Contribution")
+        roll_col, _ = st.columns([1, 4])
+        with roll_col:
+            roll_window = st.selectbox(
+                "Rolling Window", ["1W", "1M", "3M", "6M"],
+                index=1, key="sector_roll_window",
+            )
+        roll_days = {"1W": 5, "1M": 21, "3M": 63, "6M": 126}[roll_window]
+
         trimmed = sector_closes[sector_closes.index >= lb_start].copy()
         if not trimmed.empty:
-            base_row = trimmed.iloc[0]
             fig_area = go.Figure()
             for i, (sname, ticker) in enumerate(SECTOR_ETFS.items()):
                 if ticker in trimmed.columns:
-                    b = base_row.get(ticker, float("nan"))
-                    if b and b != 0 and not pd.isna(b):
-                        contrib = (trimmed[ticker] / b - 1) * 100 * SECTOR_WEIGHTS.get(ticker, 0)
-                        # Convert hex to rgba for fill
-                        hex_c = SECTOR_COLORS[i].lstrip("#")
-                        r, g, b_val = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
-                        fill_color = f"rgba({r},{g},{b_val},0.6)"
-                        fig_area.add_trace(go.Scatter(
-                            x=trimmed.index, y=contrib,
-                            name=sname,
-                            mode="lines",
-                            stackgroup="sectors",
-                            line=dict(width=0.5, color=SECTOR_COLORS[i]),
-                            fillcolor=fill_color,
-                            hovertemplate=f"{sname}: %{{y:.2f}}%<extra></extra>",
-                        ))
-            # Overlay actual S&P 500 return
-            if "^GSPC" in trimmed.columns:
-                b_spx = base_row.get("^GSPC", float("nan"))
-                if b_spx and b_spx != 0 and not pd.isna(b_spx):
-                    spx_ret = (trimmed["^GSPC"] / b_spx - 1) * 100
+                    roll_ret = trimmed[ticker].pct_change(roll_days) * 100
+                    contrib = roll_ret * SECTOR_WEIGHTS.get(ticker, 0)
+                    hex_c = SECTOR_COLORS[i].lstrip("#")
+                    r, g, b_val = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
+                    fill_color = f"rgba({r},{g},{b_val},0.6)"
                     fig_area.add_trace(go.Scatter(
-                        x=trimmed.index, y=spx_ret,
-                        name="S&P 500 (actual)",
+                        x=trimmed.index, y=contrib,
+                        name=sname,
                         mode="lines",
-                        line=dict(color="#e6edf3", width=2, dash="dot"),
-                        hovertemplate="S&P 500: %{y:.2f}%<extra></extra>",
+                        stackgroup="sectors",
+                        line=dict(width=0.5, color=SECTOR_COLORS[i]),
+                        fillcolor=fill_color,
+                        hovertemplate=f"{sname}: %{{y:.2f}}%<extra></extra>",
                     ))
+            # Overlay actual S&P 500 rolling return
+            if "^GSPC" in trimmed.columns:
+                spx_roll = trimmed["^GSPC"].pct_change(roll_days) * 100
+                fig_area.add_trace(go.Scatter(
+                    x=trimmed.index, y=spx_roll,
+                    name="S&P 500 (actual)",
+                    mode="lines",
+                    line=dict(color="#e6edf3", width=2, dash="dot"),
+                    hovertemplate="S&P 500: %{y:.2f}%<extra></extra>",
+                ))
             fig_area.update_layout(
-                make_layout("Cumulative Sector Contribution to S&P 500 Return", height=420),
-                yaxis_title="Cumulative Return (%)",
+                make_layout(f"Rolling {roll_window} Sector Contribution to S&P 500 Return", height=420),
+                yaxis_title=f"Rolling {roll_window} Return (%)",
             )
             st.plotly_chart(fig_area, use_container_width=True)
 
