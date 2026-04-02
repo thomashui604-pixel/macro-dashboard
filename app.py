@@ -1446,6 +1446,14 @@ with tab5:
         make_macro_chart({"JOLTS Openings": "JTSJOL"}, "JOLTS Job Openings", ylabel="Thousands")
     with labor_col4:
         make_macro_chart({"Initial Claims": "ICSA"}, "Initial Jobless Claims", ylabel="Thousands")
+    labor_col5, labor_col6 = st.columns(2)
+    with labor_col5:
+        make_macro_chart(
+            {"Avg Hourly Earnings": "CES0500000003"},
+            "Avg Hourly Earnings (YoY %)", yoy_compute=["CES0500000003"], ylabel="%"
+        )
+    with labor_col6:
+        pass
 
     # ── Activity ──
     st.markdown("#### Activity")
@@ -1462,6 +1470,25 @@ with tab5:
         make_macro_chart({"Mfg Production": "IPMAN"}, "Industrial Production: Manufacturing", ylabel="Index")
     with act_col4:
         make_macro_chart({"CFNAI": "CFNAI"}, "Chicago Fed National Activity Index", ylabel="Index")
+
+    # ── Consumer ──
+    st.markdown("#### Consumer")
+    cons_col1, cons_col2 = st.columns(2)
+    with cons_col1:
+        make_macro_chart(
+            {"Retail Sales": "RSAFS"},
+            "Retail Sales (YoY %)", yoy_compute=["RSAFS"], ylabel="%"
+        )
+    with cons_col2:
+        make_macro_chart({"Michigan Sentiment": "UMCSENT"}, "U. of Michigan Consumer Sentiment", ylabel="Index")
+
+    # ── Housing ──
+    st.markdown("#### Housing")
+    hous_col1, hous_col2 = st.columns(2)
+    with hous_col1:
+        make_macro_chart({"Building Permits": "PERMIT"}, "Building Permits", ylabel="Thousands")
+    with hous_col2:
+        make_macro_chart({"Housing Starts": "HOUST"}, "Housing Starts", ylabel="Thousands")
 
     # ── Financial Conditions ──
     st.markdown("#### Financial Conditions")
