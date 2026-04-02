@@ -1572,10 +1572,8 @@ with tab6:
             )
         lb_start = lookback_date(sector_lb)
 
-        # ── Section 1: Contribution Stacked Bar ──
-        st.markdown("#### S&P 500 Sector Performance")
-
-        # Compute weighted contributions for each period
+        # ── Sector Returns Table ──
+        st.markdown("#### Sector Returns")
         now_date = sector_closes.index[-1]
         period_starts = {
             "1W":  now_date - timedelta(days=7),
@@ -1584,7 +1582,6 @@ with tab6:
             "YTD": pd.Timestamp(now_date.year, 1, 1),
         }
         period_raw = {p: {} for p in period_starts}
-        period_wgt = {p: {} for p in period_starts}
         for pname, pstart in period_starts.items():
             window = sector_closes[sector_closes.index >= pstart]
             if window.empty:
@@ -1595,54 +1592,28 @@ with tab6:
                     b = base_row.get(ticker, float("nan"))
                     c = window[ticker].iloc[-1]
                     if b and b != 0 and not pd.isna(b) and not pd.isna(c):
-                        raw = (c / b - 1) * 100
-                        period_raw[pname][sname] = raw
-                        period_wgt[pname][sname] = raw * SECTOR_WEIGHTS.get(ticker, 0)
+                        period_raw[pname][sname] = (c / b - 1) * 100
 
-        fig_bar = go.Figure()
-        for i, (sname, ticker) in enumerate(SECTOR_ETFS.items()):
-            y_vals = [period_wgt[p].get(sname, 0) for p in period_starts]
-            fig_bar.add_trace(go.Bar(
-                name=sname,
-                x=list(period_starts.keys()),
-                y=y_vals,
-                marker_color=SECTOR_COLORS[i],
-                hovertemplate=f"{sname}<br>Contribution: %{{y:.2f}}%<extra></extra>",
-            ))
-        fig_bar.update_layout(
-            make_layout("Sector Contribution to S&P 500 Return", height=420),
-            barmode="relative",
-            yaxis_title="Contribution (%)",
-            xaxis_title="Period",
-        )
-
-        # Sector returns table (sorted by YTD)
-        bar_col, tbl_col = st.columns([3, 2])
-        with bar_col:
-            st.plotly_chart(fig_bar, use_container_width=True)
-        with tbl_col:
-            st.markdown("##### Sector Returns")
-            tbl_rows = []
-            for sname, ticker in SECTOR_ETFS.items():
-                row = {"Sector": sname}
-                for pname in ["1W", "1M", "3M", "YTD"]:
-                    val = period_raw[pname].get(sname)
-                    if val is not None:
-                        sign = "+" if val >= 0 else ""
-                        row[pname] = f"{sign}{val:.1f}%"
-                    else:
-                        row[pname] = "—"
-                tbl_rows.append(row)
-            # Sort by YTD
-            def _sort_key(r):
-                v = r.get("YTD", "—")
-                try:
-                    return float(v.replace("%", "").replace("+", ""))
-                except Exception:
-                    return -999
-            tbl_rows.sort(key=_sort_key, reverse=True)
-            tbl_df = pd.DataFrame(tbl_rows).set_index("Sector")
-            st.dataframe(tbl_df, use_container_width=True, height=390)
+        tbl_rows = []
+        for sname, ticker in SECTOR_ETFS.items():
+            row = {"Sector": sname}
+            for pname in ["1W", "1M", "3M", "YTD"]:
+                val = period_raw[pname].get(sname)
+                if val is not None:
+                    sign = "+" if val >= 0 else ""
+                    row[pname] = f"{sign}{val:.1f}%"
+                else:
+                    row[pname] = "—"
+            tbl_rows.append(row)
+        def _sort_key(r):
+            v = r.get("YTD", "—")
+            try:
+                return float(v.replace("%", "").replace("+", ""))
+            except Exception:
+                return -999
+        tbl_rows.sort(key=_sort_key, reverse=True)
+        tbl_df = pd.DataFrame(tbl_rows).set_index("Sector")
+        st.dataframe(tbl_df, use_container_width=True)
 
         # ── Cumulative Contribution Area Chart ──
         st.markdown("#### Sector Contribution to S&P 500")
@@ -1703,7 +1674,7 @@ with tab6:
         rrg_ctl_col, _ = st.columns([1, 4])
         with rrg_ctl_col:
             rrg_tail = st.selectbox(
-                "Tail Length (weeks)", [4, 6, 8, 12], index=1,
+                "Tail Length (weeks)", [2, 3, 4, 6], index=1,
                 key="rrg_tail",
             )
 
@@ -1792,18 +1763,21 @@ with tab6:
                 rs_r = dct["rs_ratio"]
                 rs_m = dct["rs_momentum"]
                 color = SECTOR_COLORS[i]
+                hex_c = color.lstrip("#")
+                cr, cg, cb = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
                 n = len(rs_r)
+                # Fade opacity along the tail (oldest → newest)
+                marker_colors = [f"rgba({cr},{cg},{cb},{0.15 + 0.6 * j / max(n - 2, 1)})" for j in range(n - 1)]
+                marker_colors.append(color)
                 # Tail line
                 fig_rrg.add_trace(go.Scatter(
                     x=rs_r, y=rs_m,
                     mode="lines+markers",
                     name=sname,
-                    line=dict(color=color, width=1.5),
+                    line=dict(color=f"rgba({cr},{cg},{cb},0.4)", width=1),
                     marker=dict(
-                        size=[4] * (n - 1) + [11],
-                        color=[f"rgba({int(color.lstrip('#')[0:2],16)},"
-                               f"{int(color.lstrip('#')[2:4],16)},"
-                               f"{int(color.lstrip('#')[4:6],16)},0.4)"] * (n - 1) + [color],
+                        size=[3] * (n - 1) + [9],
+                        color=marker_colors,
                         symbol=["circle"] * (n - 1) + ["diamond"],
                         line=dict(width=0),
                     ),
