@@ -1687,18 +1687,13 @@ with tab6:
                 mode="lines+markers",
                 line=dict(color="#e6edf3", width=2.5),
                 marker=dict(size=5, color="#e6edf3"),
-                yaxis="y2",
                 hovertemplate="S&P 500: %{y:.2f}%<extra></extra>",
             ))
 
             fig_contrib.update_layout(
                 make_layout(f"S&P 500 Return & {bar_window} Sector Attribution", height=460),
                 barmode="relative",
-                yaxis=dict(title=f"{bar_window} Contribution (%)", gridcolor="#21262d"),
-                yaxis2=dict(
-                    title="Cumulative S&P 500 (%)", overlaying="y", side="right",
-                    showgrid=False, gridcolor="#21262d",
-                ),
+                yaxis=dict(title="Return (%)", gridcolor="#21262d"),
             )
             st.plotly_chart(fig_contrib, use_container_width=True)
 
