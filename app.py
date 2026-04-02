@@ -1562,16 +1562,6 @@ with tab6:
     if sector_closes.empty:
         st.warning("⚠️ Sector ETF data unavailable.")
     else:
-        # ── Controls ──
-        sec_lb_col, _ = st.columns([1, 4])
-        with sec_lb_col:
-            sector_lb = st.selectbox(
-                "Lookback", ["1Y", "2Y", "5Y"],
-                index=0,
-                key="sector_lb",
-            )
-        lb_start = lookback_date(sector_lb)
-
         # ── Sector Returns Table ──
         st.markdown("#### Sector Returns")
         now_date = sector_closes.index[-1]
@@ -1621,7 +1611,7 @@ with tab6:
         with bar_col:
             bar_window = st.selectbox(
                 "Bar Period", ["1W", "2W", "1M", "3M"],
-                index=2, key="sector_bar_window",
+                index=0, key="sector_bar_window",
             )
         with range_col:
             contrib_range = st.selectbox(
