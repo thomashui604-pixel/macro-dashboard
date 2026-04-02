@@ -846,11 +846,12 @@ with tab2:
 
     market_implied = {}
     if not ff_df.empty:
-        # Try to match December contracts for each year
-        for _, row in ff_df.iterrows():
-            for yr in ["2025", "2026", "2027"]:
-                if f"Dec {yr}" in row["contract"]:
-                    market_implied[yr] = row["implied_rate"]
+        # Use the last available contract in each year as proxy for year-end rate
+        for yr in ["2025", "2026", "2027"]:
+            yr_contracts = ff_df[ff_df["contract"].str.endswith(yr)]
+            if not yr_contracts.empty:
+                # Last contract in the year (latest month available)
+                market_implied[yr] = yr_contracts.iloc[-1]["implied_rate"]
 
     if sep_data:
         fig_dots = go.Figure()
