@@ -1948,132 +1948,42 @@ with tab7:
     st.markdown("### 📊 Macro Relative Strength Dashboard")
     st.caption("Global Equity Neutral — ACWI Denominator. Strips out global equity beta to surface which themes and regions are attracting capital relative to the world average.")
 
-    # ── Universe & Constants ──
+    # ── Externalized Universe Management ──
+    UNIVERSE_CSV = Path("universe.csv")
+    DEDUP_JSON = Path("dedup_map.json")
+
+    def load_universe():
+        if UNIVERSE_CSV.exists():
+            return pd.read_csv(UNIVERSE_CSV)
+        return pd.DataFrame(columns=["Symbol", "Description", "Focus"])
+
+    def load_dedup_map():
+        if DEDUP_JSON.exists():
+            try:
+                with open(DEDUP_JSON, "r") as f:
+                    return json.load(f)
+            except:
+                return {}
+        return {}
+
+    # ── Admin: Universe Update ──
+    with st.expander("🛠️ Universe Management (Admin)"):
+        col_up, col_info = st.columns([2, 3])
+        with col_up:
+            uploaded_file = st.file_uploader("Upload new universe.csv", type=["csv"])
+            if uploaded_file is not None:
+                new_df = pd.read_csv(uploaded_file)
+                if all(c in new_df.columns for c in ["Symbol", "Description", "Focus"]):
+                    new_df.to_csv(UNIVERSE_CSV, index=False)
+                    st.success("Universe updated! Refreshing data...")
+                    st.rerun()
+                else:
+                    st.error("CSV must contain: Symbol, Description, Focus")
+        with col_info:
+            st.info("💡 Tip: Export from TradingView and ensure column names match. Redundant tickers are handled automatically via 'dedup_map.json'.")
+
+    # ── Constants ──
     RS_BASE = "ACWI"
-    RS_UNIVERSE_RAW = [
-        ("VOO", "Vanguard S&P 500 ETF", "Large cap"),
-        ("IVV", "iShares Core S&P 500 ETF", "Large cap"),
-        ("SPY", "SPDR S&P 500 ETF TRUST", "Large cap"),
-        ("VTI", "Vanguard Total Stock Market ETF", "Total market"),
-        ("QQQ", "Invesco QQQ Trust, Series 1", "Large cap"),
-        ("VEA", "Vanguard FTSE Developed Markets ETF", "Total market"),
-        ("VUG", "Vanguard Growth ETF", "Large cap"),
-        ("IEFA", "iShares Core MSCI EAFE ETF", "Total market"),
-        ("VTV", "Vanguard Value ETF", "Large cap"),
-        ("IEMG", "iShares Core MSCI Emerging Markets ETF", "Total market"),
-        ("VXUS", "Vanguard Total International Stock ETF", "Total market"),
-        ("IWF", "iShares Russell 1000 Growth Fund", "Large cap"),
-        ("VWO", "Vanguard FTSE Emerging Markets ETF", "Total market"),
-        ("VGT", "Vanguard Information Tech ETF", "Information technology"),
-        ("IJH", "iShares Core S&P Mid-Cap ETF", "Mid cap"),
-        ("SPYM", "State Street SPDR Portfolio S&P 500 ETF", "Large cap"),
-        ("VIG", "Vanguard Div Appreciation ETF", "Total market"),
-        ("VO", "Vanguard Mid-Cap ETF", "Mid cap"),
-        ("IJR", "iShares Core S&P Small-Cap ETF", "Small cap"),
-        ("RSP", "Invesco S&P 500 Equal Weight ETF", "Large cap"),
-        ("XLK", "State Street Technology Select Sector SPDR ETF", "Information technology"),
-        ("SCHD", "Schwab US Dividend Equity ETF", "High dividend yield"),
-        ("ITOT", "iShares Core S&P Total U.S. Stock Market ETF", "Total market"),
-        ("VYM", "Vanguard High Dividend Yield ETF", "High dividend yield"),
-        ("EFA", "iShares MSCI EAFE ETF", "Total market"),
-        ("VB", "Vanguard Small-Cap ETF", "Small cap"),
-        ("QQQM", "Invesco NASDAQ 100 ETF", "Large cap"),
-        ("IWD", "iShares Russell 1000 Value ETF", "Large cap"),
-        ("IWM", "iShares Russell 2000 ETF", "Small cap"),
-        ("IVW", "iShares S&P 500 Growth ETF", "Large cap"),
-        ("VT", "Vanguard Total World Stock Index ETF", "Total market"),
-        ("SCHX", "Schwab U.S. Large-Cap ETF", "Large cap"),
-        ("VEU", "Vanguard FTSE All World Ex US ETF", "Total market"),
-        ("SCHF", "Schwab International Equity ETF", "Total market"),
-        ("IXUS", "iShares Core MSCI Total International Stock ETF", "Total market"),
-        ("SCHG", "Schwab U.S. Large-Cap Growth ETF", "Large cap"),
-        ("IVE", "iShares S&P 500 Value ETF", "Large cap"),
-        ("QUAL", "iShares MSCI USA Quality Factor ETF", "Total market"),
-        ("IWR", "iShares Russell Mid-Cap ETF", "Mid cap"),
-        ("XLF", "State Street Financial Select Sector SPDR ETF", "Financials"),
-        ("VNGDF", "Vanguard Funds PLC", "Large cap"),
-        ("VV", "Vanguard Large-Cap ETF", "Large cap"),
-        ("IWB", "iShares Russell 1000 ETF", "Large cap"),
-        ("JEPI", "JPMorgan Equity Premium Income ETF", "Large cap"),
-        ("SPYG", "State Street SPDR Portfolio S&P 500 Growth ETF", "Large cap"),
-        ("SMH", "VanEck Semiconductor ETF", "Information technology"),
-        ("DIA", "State Street SPDR Dow Jones Industrial Average ETF Trust", "Large cap"),
-        ("DFAC", "Dimensional U.S. Core Equity 2 ETF", "Total market"),
-        ("XLV", "State Street Health Care Select Sector SPDR ETF", "Health care"),
-        ("XLE", "State Street Energy Select Sector SPDR ETF", "Energy"),
-        ("VONG", "Vanguard Russell 1000 Growth ETF", "Large cap"),
-        ("DGRO", "iShares Core Dividend Growth ETF", "Total market"),
-        ("SCHB", "Schwab U.S. Broad Market ETF", "Total market"),
-        ("SPDW", "State Street SPDR Portfolio Developed World ex-US ETF", "Total market"),
-        ("VNQ", "Vanguard Real Estate ETF", "Real estate"),
-        ("JEPQ", "JPMorgan Nasdaq Equity Premium Income ETF", "Large cap"),
-        ("DYNF", "iShares U.S. Equity Factor Rotation Active ETF", "Total market"),
-        ("VBR", "Vanguard Small-Cap Value ETF", "Small cap"),
-        ("SPYV", "State Street SPDR Portfolio S&P 500 Value ETF", "Large cap"),
-        ("GDX", "VanEck Gold Miners ETF", "Materials"),
-        ("VGK", "Vanguard FTSEEuropean ETF", "Total market"),
-        ("VGFPF", "Vanguard Funds PLC", "Large cap"),
-        ("CGDV", "Capital Group Dividend Value ETF", "Total market"),
-        ("XLI", "State Street Industrial Select Sector SPDR ETF", "Industrials"),
-        ("EFV", "iShares MSCI EAFE Value ETF", "Total market"),
-        ("MGK", "Vanguard Mega Cap Growth ETF", "Large cap"),
-        ("OEF", "iShares S&P 100 Fund", "Large cap"),
-        ("ACWI", "iShares MSCI ACWI ETF", "Total market"),
-        ("IDEV", "iShares Core MSCI International Developed Markets ETF", "Total market"),
-        ("EEM", "iShares MSCI Emerging Index Fund", "Total market"),
-        ("IUSG", "iShares Core S&P U.S. Growth ETF", "Total market"),
-        ("XLC", "State Street Communication Services Select Sector SPDR ETF", "Communication services"),
-        ("VXF", "Vanguard Extended Market ETF", "Extended market"),
-        ("XLU", "State Street Utilities Select Sector SPDR ETF", "Utilities"),
-        ("IUSV", "iShares Core S&P U.S. Value ETF", "Total market"),
-        ("MDY", "State Street SPDR S&P MIDCAP 400 ETF Trust", "Mid cap"),
-        ("FNDX", "Schwab Fundamental U.S. Large Company ETF", "Large cap"),
-        ("USMV", "iShares MSCI USA Min Vol Factor ETF", "Total market"),
-        ("AVUV", "Avantis U.S. Small Cap Value ETF", "Small cap"),
-        ("XLY", "State Street Consumer Discretionary Select Sector SPDR ETF", "Consumer discretionary"),
-        ("DVY", "iShares Select Dividend ETF", "High dividend yield"),
-        ("FNDF", "Schwab Fundamental International Equity ETF", "Large cap"),
-        ("VOOG", "Vanguard S&P 500 Growth ETF", "Large cap"),
-        ("VOE", "Vanguard Mid-Cap Value ETF", "Mid cap"),
-        ("SDY", "State Street SPDR S&P Dividend ETF", "High dividend yield"),
-        ("ISVAF", "IShares VII PLC", "Large cap"),
-        ("SOXX", "iShares PHLX SOX Semiconductor Sector Index Fund", "Information technology"),
-        ("VBK", "Vanguard Small-Cap Growth ETF", "Small cap"),
-        ("MTUM", "iShares MSCI USA Momentum Factor ETF", "Total market"),
-        ("AVEM", "Avantis Emerging Markets Equity ETF", "Total market"),
-        ("RDVY", "First Trust Rising Dividend Achievers ETF", "Large cap"),
-        ("CGGR", "Capital Group Growth ETF", "Total market"),
-        ("SCHA", "Schwab U.S. Small-Cap ETF", "Small cap"),
-        ("IWP", "iShares Russell Midcap Growth ETF", "Mid cap"),
-        ("IYW", "iShares U.S. Technology ETF", "Information technology"),
-        ("EWJ", "iShares MSCI Japan Index Fund", "Total market"),
-        ("DFUS", "Dimensional U.S. Equity Market ETF", "Total market"),
-        ("COWZ", "Pacer US Cash Cows 100 ETF", "Large cap"),
-        ("VYMI", "Vanguard International High Dividend Yield ETF", "High dividend yield"),
-        ("DFIV", "Dimensional International Value ETF", "Total market"),
-        ("AVDV", "Avantis International Small Cap Value ETF", "Small cap"),
-        ("IWV", "iShares Russell 3000 Fund", "Total market"),
-        ("VOT", "Vanguard Mid-Cap Growth ETF", "Mid cap"),
-        ("VHT", "Vanguard Health Care ETF", "Health care"),
-        ("XLP", "State Street Consumer Staples Select Sector SPDR ETF", "Consumer staples"),
-        ("SPEM", "State Street SPDR Portfolio Emerging Markets ETF", "Total market"),
-        ("ITA", "iShares U.S. Aerospace & Defense ETF", "Industrials"),
-        ("VONV", "Vanguard Russell 1000 Value ETF", "Large cap"),
-        ("EMXC", "iShares MSCI Emerging Markets ex China ETF", "Total market"),
-        ("EWY", "iShares MSCI South Korea ETF", "Total market"),
-        ("SPHQ", "Invesco S&P 500 Quality ETF", "Large cap"),
-    ]
-    # Redundant tickers -> canonical representative
-    RS_DEDUP_MAP = {
-        "VOO": "SPY", "IVV": "SPY", "SPYM": "SPY", "SPYG": "IVW", "VOOG": "IVW",
-        "SPYV": "IVE", "VOOV": "IVE", "QQQM": "QQQ", "ITOT": "VTI", "SCHB": "VTI",
-        "SPTM": "VTI", "FNDB": "VTI", "EFA": "IEFA", "SPDW": "IEFA", "SCHF": "IEFA",
-        "VEA": "IEFA", "IDEV": "IEFA", "EEM": "IEMG", "VWO": "IEMG", "SPEM": "IEMG",
-        "SCHE": "IEMG", "IXUS": "VXUS", "VEU": "VXUS", "VONG": "IWF", "SCHG": "IWF",
-        "VONV": "IWD", "SCHV": "IWD", "SCHX": "VV", "IWB": "VV", "OEF": "VV",
-        "MDY": "IJH", "SPMD": "IJH", "SPSM": "IJR", "VTWO": "IWM", "SCHA": "IWM",
-        "SOXX": "SMH", "VNGDF": "SPY", "VGFPF": "SPY", "ISVAF": "SPY",
-    }
 
     def assign_rs_theme(row):
         f, d = row["Focus"], str(row["Description"]).lower()
@@ -2107,8 +2017,14 @@ with tab7:
 
     @st.cache_data(ttl=3600, show_spinner="Calculating Relative Strength...")
     def get_rs_analytics():
-        universe = pd.DataFrame(RS_UNIVERSE_RAW, columns=["Symbol", "Description", "Focus"])
-        universe = universe[~universe["Symbol"].isin(RS_DEDUP_MAP.keys())].copy()
+        universe = load_universe()
+        dedup_map = load_dedup_map()
+        
+        if universe.empty:
+            return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+            
+        # Deduplication & Filtering
+        universe = universe[~universe["Symbol"].isin(dedup_map.keys())].copy()
         yield_keywords = ["yieldmax", "option income", "covered call"]
         universe = universe[~universe["Description"].str.lower().str.contains("|".join(yield_keywords))]
         universe["Theme"] = universe.apply(assign_rs_theme, axis=1)
