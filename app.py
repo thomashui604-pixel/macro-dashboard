@@ -2071,19 +2071,31 @@ with tab7:
         
         prices = prices.dropna(axis=1, how="all").ffill().bfill()
         base_price = prices[RS_BASE]
+        
+        # 1. Long-term Relative Strength (Trend)
         rs_ratio = prices.drop(columns=[RS_BASE], errors="ignore").div(base_price, axis=0)
         rs_sma20 = rs_ratio.rolling(20).mean()
         momentum = (rs_ratio - rs_sma20) / rs_sma20 * 100
-        returns_5d = np.log(prices / prices.shift(5)).replace([np.inf, -np.inf], np.nan)
-        latest_5d = returns_5d.iloc[-1].drop(RS_BASE, errors="ignore")
-        z_score = (latest_5d - latest_5d.mean()) / latest_5d.std()
+        
+        # 2. Short-term Relative Strength (Alpha Thrust)
+        # Calculate 5-day returns for each ticker and the benchmark
+        returns_5d = prices.pct_change(5)
+        bench_ret_5d = returns_5d[RS_BASE]
+        
+        # Calculate Relative Return (Alpha) = Ticker Return - Benchmark Return
+        relative_ret_5d = returns_5d.drop(columns=[RS_BASE], errors="ignore").sub(bench_ret_5d, axis=0)
+        
+        # Calculate Z-Score of the Alpha (cross-sectional)
+        latest_alpha = relative_ret_5d.iloc[-1]
+        z_score = (latest_alpha - latest_alpha.mean()) / latest_alpha.std()
 
         snap = pd.DataFrame({
             "Symbol": rs_ratio.columns,
             "RS_Ratio": rs_ratio.iloc[-1].values,
             "RS_SMA20": rs_sma20.iloc[-1].values,
             "Momentum": momentum.iloc[-1].values,
-            "Ret_5d": np.expm1(latest_5d.values),
+            "Ret_5d": returns_5d.iloc[-1].drop(RS_BASE, errors="ignore").values,
+            "Alpha_5d": latest_alpha.values,
             "Z_Score": z_score.values,
         })
         snap = snap.merge(universe[["Symbol", "Description", "Theme"]], on="Symbol", how="inner")
