@@ -14,6 +14,7 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 import yfinance as yf
+from plotly.subplots import make_subplots
 from datetime import datetime, timedelta, date
 import requests
 import json
@@ -458,13 +459,14 @@ st.markdown(render_kpi_strip(kpi_data), unsafe_allow_html=True)
 # ─────────────────────────────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📈 Rates & Curve",
     "🏛 Policy Path",
     "🌍 Cross-Asset",
     "📊 VIX & Vol",
     "📋 Macro Data",
     "🏗 Sector Analysis",
+    "📊 Relative Strength",
 ])
 
 # ═════════════════════════════════════════════════════════════════════
@@ -1938,6 +1940,306 @@ with tab6:
         else:
             st.info("Insufficient history for RRG calculation (need ~20+ weeks).")
 
+
+# ═════════════════════════════════════════════════════════════════════
+# TAB 7 — RELATIVE STRENGTH ANALYSIS
+# ═════════════════════════════════════════════════════════════════════
+with tab7:
+    st.markdown("### 📊 Macro Relative Strength Dashboard")
+    st.caption("Global Equity Neutral — ACWI Denominator. Strips out global equity beta to surface which themes and regions are attracting capital relative to the world average.")
+
+    # ── Universe & Constants ──
+    RS_BASE = "ACWI"
+    RS_UNIVERSE_RAW = [
+        ("VOO", "Vanguard S&P 500 ETF", "Large cap"),
+        ("IVV", "iShares Core S&P 500 ETF", "Large cap"),
+        ("SPY", "SPDR S&P 500 ETF TRUST", "Large cap"),
+        ("VTI", "Vanguard Total Stock Market ETF", "Total market"),
+        ("QQQ", "Invesco QQQ Trust, Series 1", "Large cap"),
+        ("VEA", "Vanguard FTSE Developed Markets ETF", "Total market"),
+        ("VUG", "Vanguard Growth ETF", "Large cap"),
+        ("IEFA", "iShares Core MSCI EAFE ETF", "Total market"),
+        ("VTV", "Vanguard Value ETF", "Large cap"),
+        ("IEMG", "iShares Core MSCI Emerging Markets ETF", "Total market"),
+        ("VXUS", "Vanguard Total International Stock ETF", "Total market"),
+        ("IWF", "iShares Russell 1000 Growth Fund", "Large cap"),
+        ("VWO", "Vanguard FTSE Emerging Markets ETF", "Total market"),
+        ("VGT", "Vanguard Information Tech ETF", "Information technology"),
+        ("IJH", "iShares Core S&P Mid-Cap ETF", "Mid cap"),
+        ("SPYM", "State Street SPDR Portfolio S&P 500 ETF", "Large cap"),
+        ("VIG", "Vanguard Div Appreciation ETF", "Total market"),
+        ("VO", "Vanguard Mid-Cap ETF", "Mid cap"),
+        ("IJR", "iShares Core S&P Small-Cap ETF", "Small cap"),
+        ("RSP", "Invesco S&P 500 Equal Weight ETF", "Large cap"),
+        ("XLK", "State Street Technology Select Sector SPDR ETF", "Information technology"),
+        ("SCHD", "Schwab US Dividend Equity ETF", "High dividend yield"),
+        ("ITOT", "iShares Core S&P Total U.S. Stock Market ETF", "Total market"),
+        ("VYM", "Vanguard High Dividend Yield ETF", "High dividend yield"),
+        ("EFA", "iShares MSCI EAFE ETF", "Total market"),
+        ("VB", "Vanguard Small-Cap ETF", "Small cap"),
+        ("QQQM", "Invesco NASDAQ 100 ETF", "Large cap"),
+        ("IWD", "iShares Russell 1000 Value ETF", "Large cap"),
+        ("IWM", "iShares Russell 2000 ETF", "Small cap"),
+        ("IVW", "iShares S&P 500 Growth ETF", "Large cap"),
+        ("VT", "Vanguard Total World Stock Index ETF", "Total market"),
+        ("SCHX", "Schwab U.S. Large-Cap ETF", "Large cap"),
+        ("VEU", "Vanguard FTSE All World Ex US ETF", "Total market"),
+        ("SCHF", "Schwab International Equity ETF", "Total market"),
+        ("IXUS", "iShares Core MSCI Total International Stock ETF", "Total market"),
+        ("SCHG", "Schwab U.S. Large-Cap Growth ETF", "Large cap"),
+        ("IVE", "iShares S&P 500 Value ETF", "Large cap"),
+        ("QUAL", "iShares MSCI USA Quality Factor ETF", "Total market"),
+        ("IWR", "iShares Russell Mid-Cap ETF", "Mid cap"),
+        ("XLF", "State Street Financial Select Sector SPDR ETF", "Financials"),
+        ("VNGDF", "Vanguard Funds PLC", "Large cap"),
+        ("VV", "Vanguard Large-Cap ETF", "Large cap"),
+        ("IWB", "iShares Russell 1000 ETF", "Large cap"),
+        ("JEPI", "JPMorgan Equity Premium Income ETF", "Large cap"),
+        ("SPYG", "State Street SPDR Portfolio S&P 500 Growth ETF", "Large cap"),
+        ("SMH", "VanEck Semiconductor ETF", "Information technology"),
+        ("DIA", "State Street SPDR Dow Jones Industrial Average ETF Trust", "Large cap"),
+        ("DFAC", "Dimensional U.S. Core Equity 2 ETF", "Total market"),
+        ("XLV", "State Street Health Care Select Sector SPDR ETF", "Health care"),
+        ("XLE", "State Street Energy Select Sector SPDR ETF", "Energy"),
+        ("VONG", "Vanguard Russell 1000 Growth ETF", "Large cap"),
+        ("DGRO", "iShares Core Dividend Growth ETF", "Total market"),
+        ("SCHB", "Schwab U.S. Broad Market ETF", "Total market"),
+        ("SPDW", "State Street SPDR Portfolio Developed World ex-US ETF", "Total market"),
+        ("VNQ", "Vanguard Real Estate ETF", "Real estate"),
+        ("JEPQ", "JPMorgan Nasdaq Equity Premium Income ETF", "Large cap"),
+        ("DYNF", "iShares U.S. Equity Factor Rotation Active ETF", "Total market"),
+        ("VBR", "Vanguard Small-Cap Value ETF", "Small cap"),
+        ("SPYV", "State Street SPDR Portfolio S&P 500 Value ETF", "Large cap"),
+        ("GDX", "VanEck Gold Miners ETF", "Materials"),
+        ("VGK", "Vanguard FTSEEuropean ETF", "Total market"),
+        ("VGFPF", "Vanguard Funds PLC", "Large cap"),
+        ("CGDV", "Capital Group Dividend Value ETF", "Total market"),
+        ("XLI", "State Street Industrial Select Sector SPDR ETF", "Industrials"),
+        ("EFV", "iShares MSCI EAFE Value ETF", "Total market"),
+        ("MGK", "Vanguard Mega Cap Growth ETF", "Large cap"),
+        ("OEF", "iShares S&P 100 Fund", "Large cap"),
+        ("ACWI", "iShares MSCI ACWI ETF", "Total market"),
+        ("IDEV", "iShares Core MSCI International Developed Markets ETF", "Total market"),
+        ("EEM", "iShares MSCI Emerging Index Fund", "Total market"),
+        ("IUSG", "iShares Core S&P U.S. Growth ETF", "Total market"),
+        ("XLC", "State Street Communication Services Select Sector SPDR ETF", "Communication services"),
+        ("VXF", "Vanguard Extended Market ETF", "Extended market"),
+        ("XLU", "State Street Utilities Select Sector SPDR ETF", "Utilities"),
+        ("IUSV", "iShares Core S&P U.S. Value ETF", "Total market"),
+        ("MDY", "State Street SPDR S&P MIDCAP 400 ETF Trust", "Mid cap"),
+        ("FNDX", "Schwab Fundamental U.S. Large Company ETF", "Large cap"),
+        ("USMV", "iShares MSCI USA Min Vol Factor ETF", "Total market"),
+        ("AVUV", "Avantis U.S. Small Cap Value ETF", "Small cap"),
+        ("XLY", "State Street Consumer Discretionary Select Sector SPDR ETF", "Consumer discretionary"),
+        ("DVY", "iShares Select Dividend ETF", "High dividend yield"),
+        ("FNDF", "Schwab Fundamental International Equity ETF", "Large cap"),
+        ("VOOG", "Vanguard S&P 500 Growth ETF", "Large cap"),
+        ("VOE", "Vanguard Mid-Cap Value ETF", "Mid cap"),
+        ("SDY", "State Street SPDR S&P Dividend ETF", "High dividend yield"),
+        ("ISVAF", "IShares VII PLC", "Large cap"),
+        ("SOXX", "iShares PHLX SOX Semiconductor Sector Index Fund", "Information technology"),
+        ("VBK", "Vanguard Small-Cap Growth ETF", "Small cap"),
+        ("MTUM", "iShares MSCI USA Momentum Factor ETF", "Total market"),
+        ("AVEM", "Avantis Emerging Markets Equity ETF", "Total market"),
+        ("RDVY", "First Trust Rising Dividend Achievers ETF", "Large cap"),
+        ("CGGR", "Capital Group Growth ETF", "Total market"),
+        ("SCHA", "Schwab U.S. Small-Cap ETF", "Small cap"),
+        ("IWP", "iShares Russell Midcap Growth ETF", "Mid cap"),
+        ("IYW", "iShares U.S. Technology ETF", "Information technology"),
+        ("EWJ", "iShares MSCI Japan Index Fund", "Total market"),
+        ("DFUS", "Dimensional U.S. Equity Market ETF", "Total market"),
+        ("COWZ", "Pacer US Cash Cows 100 ETF", "Large cap"),
+        ("VYMI", "Vanguard International High Dividend Yield ETF", "High dividend yield"),
+        ("DFIV", "Dimensional International Value ETF", "Total market"),
+        ("AVDV", "Avantis International Small Cap Value ETF", "Small cap"),
+        ("IWV", "iShares Russell 3000 Fund", "Total market"),
+        ("VOT", "Vanguard Mid-Cap Growth ETF", "Mid cap"),
+        ("VHT", "Vanguard Health Care ETF", "Health care"),
+        ("XLP", "State Street Consumer Staples Select Sector SPDR ETF", "Consumer staples"),
+        ("SPEM", "State Street SPDR Portfolio Emerging Markets ETF", "Total market"),
+        ("ITA", "iShares U.S. Aerospace & Defense ETF", "Industrials"),
+        ("VONV", "Vanguard Russell 1000 Value ETF", "Large cap"),
+        ("EMXC", "iShares MSCI Emerging Markets ex China ETF", "Total market"),
+        ("EWY", "iShares MSCI South Korea ETF", "Total market"),
+        ("SPHQ", "Invesco S&P 500 Quality ETF", "Large cap"),
+    ]
+    # Redundant tickers -> canonical representative
+    RS_DEDUP_MAP = {
+        "VOO": "SPY", "IVV": "SPY", "SPYM": "SPY", "SPYG": "IVW", "VOOG": "IVW",
+        "SPYV": "IVE", "VOOV": "IVE", "QQQM": "QQQ", "ITOT": "VTI", "SCHB": "VTI",
+        "SPTM": "VTI", "FNDB": "VTI", "EFA": "IEFA", "SPDW": "IEFA", "SCHF": "IEFA",
+        "VEA": "IEFA", "IDEV": "IEFA", "EEM": "IEMG", "VWO": "IEMG", "SPEM": "IEMG",
+        "SCHE": "IEMG", "IXUS": "VXUS", "VEU": "VXUS", "VONG": "IWF", "SCHG": "IWF",
+        "VONV": "IWD", "SCHV": "IWD", "SCHX": "VV", "IWB": "VV", "OEF": "VV",
+        "MDY": "IJH", "SPMD": "IJH", "SPSM": "IJR", "VTWO": "IWM", "SCHA": "IWM",
+        "SOXX": "SMH", "VNGDF": "SPY", "VGFPF": "SPY", "ISVAF": "SPY",
+    }
+
+    def assign_rs_theme(row):
+        f, d = row["Focus"], str(row["Description"]).lower()
+        sector_map = {
+            "Energy": "Energy", "Materials": "Materials", "Information technology": "Tech",
+            "Communication services": "Tech", "Health care": "Defensives", "Utilities": "Defensives",
+            "Consumer staples": "Defensives", "Real estate": "Real Estate", "Financials": "Cyclicals",
+            "Industrials": "Cyclicals", "Consumer discretionary": "Cyclicals", "High dividend yield": "Income / Dividend",
+        }
+        if f in sector_map: return sector_map[f]
+        if f in ("Total market", "Extended market"):
+            if any(k in d for k in ["emerging", " em ", "emerg"]): return "Emerging Markets"
+            if any(k in d for k in ["international", "world ex", "eafe", "developed", "europe", "japan", "ex-us", "ex us", "pacific", "india", "korea", "brazil", "china", "asia", "germany", "canada"]): return "Int'l / Regional"
+            if any(k in d for k in ["value", "dividend"]): return "Value / Dividend"
+            if any(k in d for k in ["growth", "momentum", "quality", "factor", "profitab"]): return "Smart Beta"
+            return "US Broad"
+        if f == "Large cap":
+            if any(k in d for k in ["growth", "nasdaq"]): return "US Growth"
+            if any(k in d for k in ["value", "dividend", "income"]): return "Value / Dividend"
+            if any(k in d for k in ["europe", "japan", "china", "asia", "international"]): return "Int'l / Regional"
+            return "US Broad"
+        if f in ("Mid cap", "Small cap", "Micro cap"): return "Small / Mid Cap"
+        if f == "Theme":
+            if any(k in d for k in ["clean", "solar", "wind", "lithium", "carbon", "climate"]): return "Thematic: Clean Energy"
+            if any(k in d for k in ["gold", "mining", "metal", "silver", "uranium", "nuclear", "resource"]): return "Materials"
+            if any(k in d for k in ["cyber", "cloud", "ai", "robot", "innov", "semi", "software", "fintech", "internet", "tech", "data center"]): return "Tech"
+            if any(k in d for k in ["biotech", "genomic", "health"]): return "Defensives"
+            if any(k in d for k in ["infrastructure", "defense", "aero", "water", "home"]): return "Cyclicals"
+            return "Thematic: Other"
+        return "Other"
+
+    @st.cache_data(ttl=3600, show_spinner="Calculating Relative Strength...")
+    def get_rs_analytics():
+        universe = pd.DataFrame(RS_UNIVERSE_RAW, columns=["Symbol", "Description", "Focus"])
+        universe = universe[~universe["Symbol"].isin(RS_DEDUP_MAP.keys())].copy()
+        yield_keywords = ["yieldmax", "option income", "covered call"]
+        universe = universe[~universe["Description"].str.lower().str.contains("|".join(yield_keywords))]
+        universe["Theme"] = universe.apply(assign_rs_theme, axis=1)
+
+        tickers = universe["Symbol"].tolist()
+        if RS_BASE not in tickers: tickers.append(RS_BASE)
+        
+        # Batch download 1Y
+        data = yf.download(tickers, period="1y", auto_adjust=True, progress=False)
+        if isinstance(data.columns, pd.MultiIndex):
+            prices = data["Close"].copy()
+        else:
+            prices = data.copy()
+        
+        prices = prices.dropna(axis=1, how="all").ffill().bfill()
+        base_price = prices[RS_BASE]
+        rs_ratio = prices.drop(columns=[RS_BASE], errors="ignore").div(base_price, axis=0)
+        rs_sma20 = rs_ratio.rolling(20).mean()
+        momentum = (rs_ratio - rs_sma20) / rs_sma20 * 100
+        returns_5d = np.log(prices / prices.shift(5)).replace([np.inf, -np.inf], np.nan)
+        latest_5d = returns_5d.iloc[-1].drop(RS_BASE, errors="ignore")
+        z_score = (latest_5d - latest_5d.mean()) / latest_5d.std()
+
+        snap = pd.DataFrame({
+            "Symbol": rs_ratio.columns,
+            "RS_Ratio": rs_ratio.iloc[-1].values,
+            "RS_SMA20": rs_sma20.iloc[-1].values,
+            "Momentum": momentum.iloc[-1].values,
+            "Ret_5d": np.expm1(latest_5d.values),
+            "Z_Score": z_score.values,
+        })
+        snap = snap.merge(universe[["Symbol", "Description", "Theme"]], on="Symbol", how="inner")
+        return snap.dropna(subset=["RS_Ratio", "Momentum", "Z_Score"]), rs_ratio, rs_sma20
+
+    rs_snap, rs_ratio_df, rs_sma_df = get_rs_analytics()
+
+    if rs_snap.empty:
+        st.warning("⚠️ Relative Strength data unavailable.")
+    else:
+        # ── AI Summary ──
+        _rs_ctx = "Relative Strength (RS) leaders (Momentum vs ACWI):\n"
+        for _, r in rs_snap.nlargest(5, "Momentum").iterrows():
+            _rs_ctx += f"  {r['Symbol']}: {r['Momentum']:+.1f}% RS Mom, {r['Z_Score']:+.1f} Z-Score\n"
+        ai_summary("rs", _rs_ctx)
+
+        rs_tabs = st.tabs(["🔥 Leaders & Laggards", "🔄 Rotation & Rebounds", "🗺️ Theme Map", "📈 Sparklines"])
+
+        with rs_tabs[0]:
+            col_l, col_r = st.columns(2)
+            cols_to_show = ["Symbol", "Description", "Theme", "Ret_5d", "Z_Score", "RS_Ratio", "Momentum"]
+            
+            with col_l:
+                st.markdown("##### 🟢 Top 20 Strongest RS Momentum")
+                top20 = rs_snap.nlargest(20, "Momentum")[cols_to_show].reset_index(drop=True)
+                st.dataframe(top20.style.format({"Ret_5d": "{:.2%}", "Z_Score": "{:+.2f}", "RS_Ratio": "{:.4f}", "Momentum": "{:+.2f}%"}).background_gradient(subset=["Z_Score", "Momentum"], cmap="RdYlGn"), use_container_width=True)
+            
+            with col_r:
+                st.markdown("##### 🔴 Bottom 20 Weakest RS Momentum")
+                bot20 = rs_snap.nsmallest(20, "Momentum")[cols_to_show].reset_index(drop=True)
+                st.dataframe(bot20.style.format({"Ret_5d": "{:.2%}", "Z_Score": "{:+.2f}", "RS_Ratio": "{:.4f}", "Momentum": "{:+.2f}%"}).background_gradient(subset=["Z_Score", "Momentum"], cmap="RdYlGn"), use_container_width=True)
+
+        with rs_tabs[1]:
+            st.markdown("#### Relative Rotation Analysis")
+            fig_rot = px.scatter(
+                rs_snap, x="Z_Score", y="Momentum", color="Theme",
+                hover_name="Symbol", hover_data=["Description", "Ret_5d"],
+                labels={"Z_Score": "Z-Score (Short-term 5d)", "Momentum": "RS Momentum (Trend % from SMA20)"},
+                height=600
+            )
+            fig_rot.add_hline(y=0, line_dash="dash", line_color="grey", opacity=0.5)
+            fig_rot.add_vline(x=0, line_dash="dash", line_color="grey", opacity=0.5)
+            for txt, xp, yp in [("Overextended", 2, 5), ("Exhausting", 2, -5), ("Capitulating", -2, -5), ("Rebounding", -2, 5)]:
+                fig_rot.add_annotation(x=xp, y=yp, text=f"<b>{txt}</b>", showarrow=False, font=dict(size=12, color="grey"))
+            fig_rot.update_layout(make_layout(""))
+            st.plotly_chart(fig_rot, use_container_width=True)
+
+            col_trn, col_brk = st.columns(2)
+            with col_trn:
+                st.markdown("##### 🔍 Turning Momentum (Rebounding)")
+                st.caption("Momentum < 0 (below SMA20) AND Z-Score > 1.0 (strong 5d surge)")
+                turning = rs_snap[(rs_snap['Momentum'] < 0) & (rs_snap['Z_Score'] > 1.0)].sort_values('Z_Score', ascending=False).head(15)
+                st.dataframe(turning[["Symbol", "Theme", "Z_Score", "Momentum", "Ret_5d"]].style.format({"Ret_5d": "{:.2%}", "Z_Score": "{:+.2f}", "Momentum": "{:+.2f}%"}), use_container_width=True)
+            
+            with col_brk:
+                st.markdown("##### ⚠️ Breaking Down (Exhausting)")
+                st.caption("Momentum > 0 (above SMA20) AND Z-Score < -1.0 (recent sharp decline)")
+                breaking = rs_snap[(rs_snap['Momentum'] > 0) & (rs_snap['Z_Score'] < -1.0)].sort_values('Z_Score', ascending=True).head(15)
+                st.dataframe(breaking[["Symbol", "Theme", "Z_Score", "Momentum", "Ret_5d"]].style.format({"Ret_5d": "{:.2%}", "Z_Score": "{:+.2f}", "Momentum": "{:+.2f}%"}), use_container_width=True)
+
+        with rs_tabs[2]:
+            st.markdown("#### Theme Aggregation")
+            theme_agg = rs_snap.groupby("Theme").agg(Avg_Z=("Z_Score", "mean"), Avg_Mom=("Momentum", "mean"), N=("Symbol", "count")).sort_values("Avg_Z", ascending=False)
+            
+            fig_theme = px.bar(
+                theme_agg.reset_index(), x="Avg_Z", y="Theme", orientation="h",
+                color="Avg_Z", color_continuous_scale="RdYlGn", range_color=[-1.5, 1.5],
+                text="N", title="Theme Avg Z-Score (5d returns)", height=500
+            )
+            fig_theme.update_traces(textposition="outside", texttemplate="%{text} ETFs")
+            fig_theme.update_layout(make_layout(""), yaxis=dict(autorange="reversed"))
+            st.plotly_chart(fig_theme, use_container_width=True)
+            st.dataframe(theme_agg.style.format({"Avg_Z": "{:+.2f}", "Avg_Mom": "{:+.2f}%", "N": "{:.0f}"}).background_gradient(subset=["Avg_Z"], cmap="RdYlGn"), use_container_width=True)
+
+        with rs_tabs[3]:
+            st.markdown("#### RS Ratio vs SMA(20) Sparklines (Trailing 60d)")
+            spark_view = st.selectbox("View", ["Top 20 Momentum", "Bottom 20 Momentum", "Turning Momentum"])
+            
+            if spark_view == "Top 20 Momentum":
+                tkrs_to_plot = rs_snap.nlargest(20, "Momentum")["Symbol"].tolist()
+            elif spark_view == "Bottom 20 Momentum":
+                tkrs_to_plot = rs_snap.nsmallest(20, "Momentum")["Symbol"].tolist()
+            else:
+                tkrs_to_plot = rs_snap[(rs_snap['Momentum'] < 0) & (rs_snap['Z_Score'] > 1.0)].sort_values('Z_Score', ascending=False).head(20)["Symbol"].tolist()
+
+            if tkrs_to_plot:
+                cols = 5
+                rows = -(-len(tkrs_to_plot) // cols)
+                fig_sparks = make_subplots(rows=rows, cols=cols, subplot_titles=tkrs_to_plot, horizontal_spacing=0.04, vertical_spacing=0.08)
+                
+                for i, tkr in enumerate(tkrs_to_plot):
+                    r, c = divmod(i, cols)
+                    if tkr in rs_ratio_df.columns:
+                        ratio_line = rs_ratio_df[tkr].tail(60)
+                        sma_line = rs_sma_df[tkr].tail(60)
+                        fig_sparks.add_trace(go.Scatter(x=ratio_line.index, y=ratio_line.values, mode="lines", line=dict(color=BLUE, width=1.5), showlegend=False), row=r+1, col=c+1)
+                        fig_sparks.add_trace(go.Scatter(x=sma_line.index, y=sma_line.values, mode="lines", line=dict(color=YELLOW, width=1, dash="dash"), showlegend=False), row=r+1, col=c+1)
+                
+                fig_sparks.update_xaxes(showticklabels=False, showgrid=False)
+                fig_sparks.update_yaxes(showticklabels=False, showgrid=False)
+                fig_sparks.update_layout(make_layout("", height=140 * rows))
+                st.plotly_chart(fig_sparks, use_container_width=True)
 
 # ─────────────────────────────────────────────────────────────────────
 # FOOTER
