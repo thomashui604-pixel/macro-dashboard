@@ -650,16 +650,16 @@ with tab2:
     @st.cache_data(ttl=3600, show_spinner=False)
     def fetch_ff_futures():
         """Fetch Fed Funds Futures strip from yfinance."""
-        # Construct tickers for upcoming contracts
         months = {"F": "Jan", "G": "Feb", "H": "Mar", "J": "Apr", "K": "May", "M": "Jun",
                   "N": "Jul", "Q": "Aug", "U": "Sep", "V": "Oct", "X": "Nov", "Z": "Dec"}
-        month_codes = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"]
+        month_codes =["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"]
         now = datetime.now()
 
         tickers = []
-        labels = []
-        # Generate 18 contracts ahead
-        for i in range(18):
+        labels =[]
+        # FIX: Increased from 18 to 24 months to ensure we have the "next month" 
+        # contract for CME math on late-year meetings.
+        for i in range(24):
             m_idx = (now.month - 1 + i) % 12
             year = now.year + (now.month - 1 + i) // 12
             code = month_codes[m_idx]
@@ -669,7 +669,7 @@ with tab2:
             tickers.append(ticker)
             labels.append(label)
 
-        results = []
+        results =[]
         for ticker, label in zip(tickers, labels):
             try:
                 t = yf.Ticker(ticker)
@@ -698,36 +698,41 @@ with tab2:
 
     # ── FedWatch-Style Per-Meeting Probabilities ──
     st.markdown("#### FOMC Meeting Probabilities — FedWatch Style")
-    st.caption("Interpolated from monthly FF futures using the CME FedWatch methodology: isolates the implied rate change at each meeting using day-weighting within the contract month.")
+    st.caption("Interpolated from monthly FF futures using the CME FedWatch methodology.")
 
-    # Scheduled FOMC announcement dates
-    FOMC_DATES = [
-        # 2026
-        (2026, 1, 28), (2026, 3, 18), (2026, 5, 6), (2026, 6, 17),
-        (2026, 7, 29), (2026, 9, 16), (2026, 10, 28), (2026, 12, 16),
-        # 2027
-        (2027, 1, 27), (2027, 3, 17), (2027, 5, 5), (2027, 6, 16),
-        (2027, 7, 28), (2027, 9, 22), (2027, 10, 27), (2027, 12, 15),
-    ]
-
-    def compute_fedwatch(contracts_dict, current_effr, fomc_dates_raw):
-        """
-        CME FedWatch methodology using a Probability Tree.
-        
-        Calculates the marginal rate change for each meeting, converts it to 
-        discrete 25bp move probabilities, and compounds them forward through 
-        a probability distribution matrix.
-        """
+    def get_dynamic_fomc_dates(num_upcoming=12):
+        """Dynamically generates future FOMC dates so the app never breaks."""
         today = date.today()
-        fomc_dates = [date(y, m, d) for y, m, d in fomc_dates_raw if date(y, m, d) > today]
-        month_key = lambda d: f"{d.strftime('%b')} {d.year}"
+        # Known standard schedule
+        known_dates =[
+            # 2026
+            date(2026, 1, 28), date(2026, 3, 18), date(2026, 5, 6), date(2026, 6, 17),
+            date(2026, 7, 29), date(2026, 9, 16), date(2026, 10, 28), date(2026, 12, 16),
+            # 2027
+            date(2027, 1, 27), date(2027, 3, 17), date(2027, 5, 5), date(2027, 6, 16),
+            date(2027, 7, 28), date(2027, 9, 22), date(2027, 10, 27), date(2027, 12, 15),
+        ]
+        future_dates = [d for d in known_dates if d > today]
         
-        results = []
+        # Algorithmic fallback if we run out of known dates (rolls forward infinitely)
+        standard_months =[1, 3, 5, 6, 7, 9, 10, 12]
+        last_year = future_dates[-1].year if future_dates else today.year
+        while len(future_dates) < num_upcoming:
+            last_year += 1
+            for m in standard_months:
+                approx_date = date(last_year, m, 16) # ~Mid-month approximation
+                if approx_date > today:
+                    future_dates.append(approx_date)
+                    
+        return future_dates[:num_upcoming]
+
+    FOMC_DATES = get_dynamic_fomc_dates()
+
+    def compute_fedwatch(contracts_dict, current_effr, fomc_dates):
+        month_key = lambda d: f"{d.strftime('%b')} {d.year}"
+        results =[]
         prev_post_rate = None
         prev_mtg = None
-        
-        # Probability tree state: keyed by cumulative basis point change from current EFFR.
-        # Initializes with a 100% probability of 0bp change (current target).
         cum_prob_dist = {0: 1.0}
 
         for mtg in fomc_dates:
@@ -739,10 +744,10 @@ with tab2:
 
             month_rate = contracts_dict[mk]
             days_in_month = calendar.monthrange(mtg.year, mtg.month)[1]
-            d_b = mtg.day  # Days pre-rate is active
-            d_a = days_in_month - d_b  # Days post-rate is active
+            d_b = mtg.day
+            d_a = days_in_month - d_b
 
-# ── 1. Establish the Pre-Meeting Rate ──
+            # 1. Establish Pre-Meeting Rate
             use_chain = (prev_post_rate is not None and prev_mtg is not None 
                          and prev_mtg.year == mtg.year and prev_mtg.month == mtg.month)
             if use_chain:
@@ -755,41 +760,39 @@ with tab2:
                 if prior_key in contracts_dict:
                     pre_rate = contracts_dict[prior_key]
                 elif prev_post_rate is not None:
-                    pre_rate = prev_post_rate  # Carry forward last known rate if contract is missing
+                    pre_rate = prev_post_rate
                 else:
                     pre_rate = current_effr
 
-            # ── 2. Extract the Implied Post-Meeting Rate ──
+            # 2. Extract Implied Post-Meeting Rate
             next_month = mtg.month + 1 if mtg.month < 12 else 1
             next_year = mtg.year if mtg.month < 12 else mtg.year + 1
             next_key = month_key(date(next_year, next_month, 1))
             
-            # Identify if/when the next month has a meeting
-            next_mtgs = [m for m in fomc_dates if m.year == next_year and m.month == next_month]
+            next_mtgs =[m for m in fomc_dates if m.year == next_year and m.month == next_month]
             has_next_month_mtg = len(next_mtgs) > 0
             next_mtg_day = next_mtgs[0].day if has_next_month_mtg else 31
 
             if not has_next_month_mtg and next_key in contracts_dict:
-                # CME Rule: Next month has no meeting. Contract is a pure read.
                 post_rate = contracts_dict[next_key]
             elif d_a <= 10 and next_key in contracts_dict and next_mtg_day >= 15:
-                # Late-month meeting creates a dangerous multiplier (>3x). 
-                # If the next month's meeting is also late, use the next month's 
-                # contract as a clean proxy to bypass the noise.
                 post_rate = contracts_dict[next_key]
+            elif d_a <= 10 and next_key not in contracts_dict:
+                # FIX: If we are blind to the next month on the far end of the curve, 
+                # do not run the CME multiplier on late-month meetings. Avoids the blowout.
+                post_rate = month_rate
             else:
                 if d_a == 0: d_a = 1
                 post_rate = (month_rate * days_in_month - pre_rate * d_b) / d_a
 
-            # Sanity clamp for illiquid far-out curves
+            # Sanity clamp for illiquid curves
             if post_rate < 0 or abs(post_rate - month_rate) > 0.75:
                 post_rate = contracts_dict.get(next_key, month_rate)
 
-            # ── 3. Calculate Marginal Probabilities ──
+            # 3. Calculate Marginal Probabilities
             delta_bp = (post_rate - pre_rate) * 100
-            m_moves = delta_bp / 25.0  # Expressed in units of standard 25bp moves
+            m_moves = delta_bp / 25.0
             
-            # Isolate the two adjacent 25bp buckets for THIS specific meeting
             lower_move = math.floor(m_moves)
             upper_move = lower_move + 1
             
@@ -801,8 +804,7 @@ with tab2:
                 upper_move * 25: prob_upper_move
             }
 
-            # ── 4. Advance the Probability Tree (Convolution) ──
-            # Compound the marginal probabilities against the prior cumulative distribution
+            # 4. Advance Probability Tree
             new_cum_dist = defaultdict(float)
             for cum_bp, cum_prob in cum_prob_dist.items():
                 for marg_bp, marg_prob in marginal_probs.items():
@@ -810,7 +812,7 @@ with tab2:
             
             cum_prob_dist = dict(new_cum_dist)
 
-            # ── 5. Extract Final Display Metrics ──
+            # 5. Final Metrics
             expected_cum_bp = sum(bp * p for bp, p in cum_prob_dist.items())
             cum_moves = expected_cum_bp / 25.0
             
@@ -828,13 +830,12 @@ with tab2:
                 "move_type": move_type,
                 "cum_bp": expected_cum_bp,
                 "cum_moves": cum_moves,
-                "prob_dist": dict(cum_prob_dist), # Contains the full multi-bucket spread
             })
+            prev_post_rate = post_rate
 
         return results
 
     if not ff_df.empty:
-        # Build contracts dict from ff_df
         contracts_dict = dict(zip(ff_df["contract"], ff_df["implied_rate"]))
         effr_for_fw = _effr_tab2.iloc[-1] if len(_effr_tab2) > 0 else None
 
@@ -849,7 +850,6 @@ with tab2:
                 st.markdown(tbl_hdr, unsafe_allow_html=True)
 
                 for r in fw_results:
-                    # #Hikes/Cuts — cumulative 25bp moves from EFFR
                     cm = r["cum_moves"]
                     if abs(cm) < 0.05:
                         cum_label = "—"
@@ -861,11 +861,8 @@ with tab2:
                         cum_label = f"{cm:.1f} hikes"
                         cum_color = RED
 
-                    # %Hike/Cut — probability of a move at this meeting
                     move_label = f'{r["prob_move"]*100:.0f}% {r["move_type"]}'
                     move_color = GREEN if r["move_type"] == "cut" else RED if r["move_type"] == "hike" else MUTED
-
-                    # Delta implied rate
                     delta_color = GREEN if r["delta_bp"] < -1 else RED if r["delta_bp"] > 1 else MUTED
 
                     row = f'<div style="display:grid; grid-template-columns:{grid_cols}; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
@@ -879,13 +876,11 @@ with tab2:
 
                 st.markdown("<div style='margin-bottom:12px'></div>", unsafe_allow_html=True)
 
-                # ── FedWatch-style chart: Implied Rate + Cumulative Cuts ──
+                # ── FedWatch-style chart ──
                 fw_df = pd.DataFrame(fw_results)
-
                 fig_fw = go.Figure()
 
-                # Bars: cumulative cuts/hikes (right axis)
-                bar_colors = [GREEN if v < -0.05 else RED if v > 0.05 else MUTED for v in fw_df["cum_moves"]]
+                bar_colors =[GREEN if v < -0.05 else RED if v > 0.05 else MUTED for v in fw_df["cum_moves"]]
                 bar_hover = []
                 for m, v in zip(fw_df["meeting"], fw_df["cum_moves"]):
                     if abs(v) < 0.05:
@@ -896,55 +891,32 @@ with tab2:
                         bar_hover.append(f"{m}<br>{v:.1f} hikes priced")
                 fig_fw.add_trace(go.Bar(
                     x=fw_df["meeting"], y=fw_df["cum_moves"],
-                    name="# Hikes/Cuts",
-                    marker_color=bar_colors, opacity=0.75,
-                    yaxis="y2",
-                    hovertext=bar_hover,
-                    hovertemplate="%{hovertext}<extra></extra>",
+                    name="# Hikes/Cuts", marker_color=bar_colors, opacity=0.75,
+                    yaxis="y2", hovertext=bar_hover, hovertemplate="%{hovertext}<extra></extra>",
                 ))
 
-                # Line: implied post-meeting policy rate (left axis)
                 fig_fw.add_trace(go.Scatter(
                     x=fw_df["meeting"], y=fw_df["post_rate"],
                     name="Implied Policy Rate (%)",
-                    line=dict(color=BLUE, width=3),
-                    mode="lines+markers",
+                    line=dict(color=BLUE, width=3), mode="lines+markers",
                     marker=dict(size=7, color=BLUE),
                     hovertemplate="%{x}<br>Implied rate: %{y:.3f}%<extra></extra>",
                 ))
 
-                # Current EFFR anchor
                 fig_fw.add_trace(go.Scatter(
                     x=["Current"], y=[effr_for_fw],
-                    mode="markers+text",
-                    marker=dict(size=10, color="white", line=dict(color=BLUE, width=2)),
-                    text=[f"{effr_for_fw:.2f}%"], textposition="top center",
-                    textfont=dict(color="white", size=11),
-                    showlegend=False,
-                    hovertemplate="Current EFFR: %{y:.3f}%<extra></extra>",
+                    mode="markers+text", marker=dict(size=10, color="white", line=dict(color=BLUE, width=2)),
+                    text=[f"{effr_for_fw:.2f}%"], textposition="top center", textfont=dict(color="white", size=11),
+                    showlegend=False, hovertemplate="Current EFFR: %{y:.3f}%<extra></extra>",
                 ))
 
-                # Reference line at current EFFR
                 fig_fw.add_hline(y=effr_for_fw, line_dash="solid", line_color="rgba(255,255,255,0.25)", line_width=1)
-
                 fig_fw.update_layout(make_layout("Implied Overnight Rate & Number of Cuts Priced In", height=450))
                 fig_fw.update_layout(
-                    xaxis=dict(
-                        tickangle=-45,
-                        categoryorder="array",
-                        categoryarray=["Current"] + fw_df["meeting"].tolist(),
-                        gridcolor="#21262d",
-                    ),
+                    xaxis=dict(tickangle=-45, categoryorder="array", categoryarray=["Current"] + fw_df["meeting"].tolist(), gridcolor="#21262d"),
                     yaxis=dict(title="Implied Policy Rate (%)", side="left", gridcolor="#21262d"),
-                    yaxis2=dict(
-                        title="# Hikes/Cuts",
-                        overlaying="y", side="right", showgrid=False,
-                        zeroline=True, zerolinecolor="rgba(255,255,255,0.15)",
-                        dtick=1,
-                        rangemode="tozero",
-                    ),
-                    legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="left", x=0, font=dict(size=10)),
-                    bargap=0.3,
+                    yaxis2=dict(title="# Hikes/Cuts", overlaying="y", side="right", showgrid=False, zeroline=True, zerolinecolor="rgba(255,255,255,0.15)", dtick=1, rangemode="tozero"),
+                    legend=dict(orientation="h", yanchor="top", y=-0.2, xanchor="left", x=0, font=dict(size=10)), bargap=0.3,
                 )
                 st.plotly_chart(fig_fw, use_container_width=True)
             else:
@@ -958,21 +930,12 @@ with tab2:
     st.markdown("#### FOMC SEP Median Dots vs Market Pricing")
     st.caption("SEP Medians from Dec 2024 projections — update quarterly")
 
-    # Hardcoded SEP median dots (Dec 2024 SEP)
-    sep_data = {
-        "2025": 3.875,
-        "2026": 3.375,
-        "2027": 3.125,
-        "Longer Run": 3.00,
-    }
-
+    sep_data = {"2025": 3.875, "2026": 3.375, "2027": 3.125, "Longer Run": 3.00}
     market_implied = {}
     if not ff_df.empty:
-        # Use the last available contract in each year as proxy for year-end rate
-        for yr in ["2025", "2026", "2027"]:
+        for yr in["2025", "2026", "2027"]:
             yr_contracts = ff_df[ff_df["contract"].str.endswith(yr)]
             if not yr_contracts.empty:
-                # Last contract in the year (latest month available)
                 market_implied[yr] = yr_contracts.iloc[-1]["implied_rate"]
 
     if sep_data:
@@ -994,16 +957,14 @@ with tab2:
         fig_dots.update_layout(yaxis_title="Rate (%)")
         st.plotly_chart(fig_dots, use_container_width=True)
 
-    # ── SOFR Futures Strip ──
     st.markdown("#### SOFR Futures Strip (SR1)")
-
     @st.cache_data(ttl=3600, show_spinner=False)
     def fetch_sofr_futures():
-        month_codes = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"]
+        month_codes =["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"]
         months_map = {"F": "Jan", "G": "Feb", "H": "Mar", "J": "Apr", "K": "May", "M": "Jun",
                       "N": "Jul", "Q": "Aug", "U": "Sep", "V": "Oct", "X": "Nov", "Z": "Dec"}
         now = datetime.now()
-        results = []
+        results =[]
         for i in range(8):
             m_idx = (now.month - 1 + i) % 12
             year = now.year + (now.month - 1 + i) // 12
@@ -1015,8 +976,7 @@ with tab2:
                 t = yf.Ticker(ticker)
                 hist = t.history(period="5d", auto_adjust=True)
                 if not hist.empty:
-                    price = hist["Close"].iloc[-1]
-                    results.append({"contract": label, "implied_rate": 100 - price})
+                    results.append({"contract": label, "implied_rate": 100 - hist["Close"].iloc[-1]})
             except Exception:
                 continue
         return pd.DataFrame(results)
@@ -1026,15 +986,13 @@ with tab2:
         fig_sofr = go.Figure()
         fig_sofr.add_trace(go.Bar(
             x=sofr_strip["contract"], y=sofr_strip["implied_rate"],
-            marker_color=CYAN, text=[f"{r:.3f}%" for r in sofr_strip["implied_rate"]],
-            textposition="outside",
+            marker_color=CYAN, text=[f"{r:.3f}%" for r in sofr_strip["implied_rate"]], textposition="outside",
         ))
         fig_sofr.update_layout(make_layout("", height=320))
         fig_sofr.update_layout(yaxis_title="Implied Rate (%)", xaxis_tickangle=-45)
         st.plotly_chart(fig_sofr, use_container_width=True)
     else:
         st.info("SOFR futures data unavailable via yfinance.")
-
 
 # ═════════════════════════════════════════════════════════════════════
 # TAB 3 — CROSS-ASSET DASHBOARD
