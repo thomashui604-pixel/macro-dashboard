@@ -753,23 +753,28 @@ with tab2:
                 prior_key = month_key(date(prior_year, prior_month, 1))
                 pre_rate = contracts_dict.get(prior_key, current_effr)
 
-            # ── 2. Extract the Implied Post-Meeting Rate ──
-            if d_a <= 2:
-                # CME rule: If meeting is late in the month, interpolation is unstable.
-                # Use the clean pricing of the subsequent month's contract.
-                next_month = mtg.month + 1 if mtg.month < 12 else 1
-                next_year = mtg.year if mtg.month < 12 else mtg.year + 1
-                next_key = month_key(date(next_year, next_month, 1))
-                post_rate = contracts_dict.get(next_key, month_rate)
+          # ── 2. Extract the Implied Post-Meeting Rate ──
+            next_month = mtg.month + 1 if mtg.month < 12 else 1
+            next_year = mtg.year if mtg.month < 12 else mtg.year + 1
+            next_key = month_key(date(next_year, next_month, 1))
+            
+            has_next_month_mtg = any(m.year == next_year and m.month == next_month for m in fomc_dates)
+
+            if not has_next_month_mtg and next_key in contracts_dict:
+                # CME Rule: Next month has no meeting. Contract is a pure read.
+                post_rate = contracts_dict[next_key]
             else:
-                post_rate = (month_rate * days_in_month - pre_rate * d_b) / d_a
+                # Interpolate using current month's contract
+                if d_a <= 2:
+                    post_rate = contracts_dict.get(next_key, month_rate)
+                else:
+                    post_rate = (month_rate * days_in_month - pre_rate * d_b) / d_a
 
-            # Sanity clamp for illiquid far-out contracts
-            if post_rate < 0 or abs(post_rate - current_effr) > 3.0:
-                post_rate = month_rate
-
-            prev_post_rate = post_rate
-            prev_mtg = mtg
+            # Sanity clamp for illiquid far-out contracts (Yahoo Finance data quality).
+            # If the calculated post-rate deviates from the month average by more than 50 bps, 
+            # it is bid/ask noise blown up by the interpolation multiplier.
+            if post_rate < 0 or abs(post_rate - month_rate) > 0.50:
+                post_rate = contracts_dict.get(next_key, month_rate)
 
             # ── 3. Calculate Marginal Probabilities ──
             delta_bp = (post_rate - pre_rate) * 100
