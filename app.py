@@ -14,11 +14,14 @@ import plotly.express as px
 import pandas as pd
 import numpy as np
 import yfinance as yf
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import requests
 import json
 import time
 import shutil
+import math
+import calendar
+from collections import defaultdict
 from pathlib import Path
 import warnings
 
@@ -263,12 +266,12 @@ def fetch_recession_dates():
     recessions = []
     in_recession = False
     start = None
-    for date, val in s.items():
+    for date_val, val in s.items():
         if val == 1 and not in_recession:
-            start = date
+            start = date_val
             in_recession = True
         elif val == 0 and in_recession:
-            recessions.append((start, date))
+            recessions.append((start, date_val))
             in_recession = False
     if in_recession:
         recessions.append((start, s.index[-1]))
@@ -709,38 +712,23 @@ with tab2:
 
     def compute_fedwatch(contracts_dict, current_effr, fomc_dates_raw):
         """
-        CME FedWatch methodology.
-
-        Reference: CME Group "Fed Funds Futures and Options — Understanding
-        the FedWatch Tool" methodology document.
-
-        1. Monthly FF futures settle at the avg daily EFFR for the month.
-           futures_rate = (pre_rate × d_b + post_rate × d_a) / N
-           where N = days in month, d_b = meeting day, d_a = N - d_b.
-
-        2. Solve for post_rate:
-           post_rate = (futures_rate × N - pre_rate × d_b) / d_a
-
-        3. Pre-rate for first meeting = prior month contract (or EFFR).
-           For subsequent meetings in same/adjacent month = chained post_rate.
-
-        4. Probability distribution: post_rate placed on 25bp grid.
-           P(lower) = (upper - post_rate) / 0.25
-           P(upper) = (post_rate - lower) / 0.25
-
-        5. Meeting in last 2 days of month: use next month's contract.
+        CME FedWatch methodology using a Probability Tree.
+        
+        Calculates the marginal rate change for each meeting, converts it to 
+        discrete 25bp move probabilities, and compounds them forward through 
+        a probability distribution matrix.
         """
-        import calendar
-        import math
-        from datetime import date
-
         today = date.today()
         fomc_dates = [date(y, m, d) for y, m, d in fomc_dates_raw if date(y, m, d) > today]
-
         month_key = lambda d: f"{d.strftime('%b')} {d.year}"
+        
         results = []
         prev_post_rate = None
         prev_mtg = None
+        
+        # Probability tree state: keyed by cumulative basis point change from current EFFR.
+        # Initializes with a 100% probability of 0bp change (current target).
+        cum_prob_dist = {0: 1.0}
 
         for mtg in fomc_dates:
             mk = month_key(mtg)
@@ -751,33 +739,24 @@ with tab2:
 
             month_rate = contracts_dict[mk]
             days_in_month = calendar.monthrange(mtg.year, mtg.month)[1]
-            # d_b = days the pre-meeting rate is in effect (announcement day
-            # itself still uses old rate; change effective next day)
-            d_b = mtg.day
-            d_a = days_in_month - d_b
+            d_b = mtg.day  # Days pre-rate is active
+            d_a = days_in_month - d_b  # Days post-rate is active
 
-            # ── Pre-rate determination ──
-            # Chain from prior meeting only when meetings are in the same month
-            # (two meetings per month case). Otherwise use the prior month's
-            # contract, which is pure market data with no interpolation error.
-            use_chain = (prev_post_rate is not None and prev_mtg is not None
+            # ── 1. Establish the Pre-Meeting Rate ──
+            use_chain = (prev_post_rate is not None and prev_mtg is not None 
                          and prev_mtg.year == mtg.year and prev_mtg.month == mtg.month)
-
             if use_chain:
                 pre_rate = prev_post_rate
             else:
                 prior_month = mtg.month - 1 if mtg.month > 1 else 12
                 prior_year = mtg.year if mtg.month > 1 else mtg.year - 1
                 prior_key = month_key(date(prior_year, prior_month, 1))
-                if prior_key in contracts_dict:
-                    pre_rate = contracts_dict[prior_key]
-                else:
-                    pre_rate = current_effr
+                pre_rate = contracts_dict.get(prior_key, current_effr)
 
-            # ── Post-rate extraction ──
-            # CME standard: when meeting is in the last 2 days of the month,
-            # the contract is dominated by pre-rate; use next month instead.
+            # ── 2. Extract the Implied Post-Meeting Rate ──
             if d_a <= 2:
+                # CME rule: If meeting is late in the month, interpolation is unstable.
+                # Use the clean pricing of the subsequent month's contract.
                 next_month = mtg.month + 1 if mtg.month < 12 else 1
                 next_year = mtg.year if mtg.month < 12 else mtg.year + 1
                 next_key = month_key(date(next_year, next_month, 1))
@@ -785,40 +764,45 @@ with tab2:
             else:
                 post_rate = (month_rate * days_in_month - pre_rate * d_b) / d_a
 
-            # Sanity clamp: post_rate must be non-negative and within a
-            # reasonable band (±300bp from current EFFR). Wild values indicate
-            # stale/illiquid far-out contracts — clamp to the raw contract rate.
+            # Sanity clamp for illiquid far-out contracts
             if post_rate < 0 or abs(post_rate - current_effr) > 3.0:
                 post_rate = month_rate
 
             prev_post_rate = post_rate
             prev_mtg = mtg
 
+            # ── 3. Calculate Marginal Probabilities ──
             delta_bp = (post_rate - pre_rate) * 100
+            m_moves = delta_bp / 25.0  # Expressed in units of standard 25bp moves
+            
+            # Isolate the two adjacent 25bp buckets for THIS specific meeting
+            lower_move = math.floor(m_moves)
+            upper_move = lower_move + 1
+            
+            prob_upper_move = m_moves - lower_move
+            prob_lower_move = 1.0 - prob_upper_move
+            
+            marginal_probs = {
+                lower_move * 25: prob_lower_move,
+                upper_move * 25: prob_upper_move
+            }
 
-            # ── Probability distribution on 25bp grid ──
-            lower_target = math.floor(post_rate / 0.25) * 0.25
-            upper_target = lower_target + 0.25
-            prob_upper = max(0.0, min(1.0, (post_rate - lower_target) / 0.25))
-            prob_lower = 1.0 - prob_upper
+            # ── 4. Advance the Probability Tree (Convolution) ──
+            # Compound the marginal probabilities against the prior cumulative distribution
+            new_cum_dist = defaultdict(float)
+            for cum_bp, cum_prob in cum_prob_dist.items():
+                for marg_bp, marg_prob in marginal_probs.items():
+                    new_cum_dist[cum_bp + marg_bp] += cum_prob * marg_prob
+            
+            cum_prob_dist = dict(new_cum_dist)
 
-            prob_dist = {lower_target: prob_lower, upper_target: prob_upper}
-
-            # Hold probability = mass on the 25bp target nearest to pre_rate
-            pre_target = round(pre_rate / 0.25) * 0.25
-            prob_hold = prob_dist.get(pre_target, 0.0)
+            # ── 5. Extract Final Display Metrics ──
+            expected_cum_bp = sum(bp * p for bp, p in cum_prob_dist.items())
+            cum_moves = expected_cum_bp / 25.0
+            
+            prob_hold = marginal_probs.get(0, 0.0)
             prob_move = 1.0 - prob_hold
-
-            if delta_bp < -1:
-                move_type = "cut"
-            elif delta_bp > 1:
-                move_type = "hike"
-            else:
-                move_type = "hold"
-
-            # Cumulative change from current EFFR
-            cum_bp = (post_rate - current_effr) * 100
-            cum_moves = cum_bp / 25
+            move_type = "cut" if delta_bp < -1 else "hike" if delta_bp > 1 else "hold"
 
             results.append({
                 "meeting": mtg.strftime("%b %d, %Y"),
@@ -828,9 +812,9 @@ with tab2:
                 "prob_hold": prob_hold,
                 "prob_move": prob_move,
                 "move_type": move_type,
-                "cum_bp": cum_bp,
+                "cum_bp": expected_cum_bp,
                 "cum_moves": cum_moves,
-                "prob_dist": prob_dist,
+                "prob_dist": dict(cum_prob_dist), # Contains the full multi-bucket spread
             })
 
         return results
