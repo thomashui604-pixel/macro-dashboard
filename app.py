@@ -709,20 +709,35 @@ with tab2:
 
     def compute_fedwatch(contracts_dict, current_effr, fomc_dates_raw):
         """
-        CME FedWatch methodology — discrete probability distribution over
-        a grid of possible target rates, compounded across meetings.
+        CME FedWatch methodology.
+
+        Reference: CME Group "Fed Funds Futures and Options — Understanding
+        the FedWatch Tool" methodology document.
+
+        1. Monthly FF futures settle at the avg daily EFFR for the month.
+           futures_rate = (pre_rate × d_b + post_rate × d_a) / N
+           where N = days in month, d_b = meeting day, d_a = N - d_b.
+
+        2. Solve for post_rate:
+           post_rate = (futures_rate × N - pre_rate × d_b) / d_a
+
+        3. Pre-rate for first meeting = prior month contract (or EFFR).
+           For subsequent meetings in same/adjacent month = chained post_rate.
+
+        4. Probability distribution: post_rate placed on 25bp grid.
+           P(lower) = (upper - post_rate) / 0.25
+           P(upper) = (post_rate - lower) / 0.25
+
+        5. Meeting in last 2 days of month: use next month's contract.
         """
         import calendar
+        import math
         from datetime import date
 
         today = date.today()
         fomc_dates = [date(y, m, d) for y, m, d in fomc_dates_raw if date(y, m, d) > today]
 
         month_key = lambda d: f"{d.strftime('%b')} {d.year}"
-
-        # Round EFFR to nearest 25bp to establish current target rate
-        current_target = round(current_effr * 4) / 4
-
         results = []
         prev_post_rate = None
         prev_mtg = None
@@ -736,16 +751,17 @@ with tab2:
 
             month_rate = contracts_dict[mk]
             days_in_month = calendar.monthrange(mtg.year, mtg.month)[1]
-            effective_day = mtg.day + 1
-            days_before = effective_day - 1
-            days_after = days_in_month - days_before
+            # d_b = days the pre-meeting rate is in effect (announcement day
+            # itself still uses old rate; change effective next day)
+            d_b = mtg.day
+            d_a = days_in_month - d_b
 
-            # Determine pre-rate
-            use_chain = False
-            if prev_post_rate is not None and prev_mtg is not None:
-                months_gap = (mtg.year - prev_mtg.year) * 12 + (mtg.month - prev_mtg.month)
-                if months_gap <= 1:
-                    use_chain = True
+            # ── Pre-rate determination ──
+            # Chain from prior meeting only when meetings are in the same month
+            # (two meetings per month case). Otherwise use the prior month's
+            # contract, which is pure market data with no interpolation error.
+            use_chain = (prev_post_rate is not None and prev_mtg is not None
+                         and prev_mtg.year == mtg.year and prev_mtg.month == mtg.month)
 
             if use_chain:
                 pre_rate = prev_post_rate
@@ -758,44 +774,38 @@ with tab2:
                 else:
                     pre_rate = current_effr
 
-            # Extract post-rate via day-weighting.
-            # When meeting is late in the month (few days after), the formula
-            # amplifies errors by days_in_month/days_after. Use next month's
-            # contract when amplification > 5x (i.e., days_after < ~6).
-            if days_after <= max(days_in_month // 5, 3):
+            # ── Post-rate extraction ──
+            # CME standard: when meeting is in the last 2 days of the month,
+            # the contract is dominated by pre-rate; use next month instead.
+            if d_a <= 2:
                 next_month = mtg.month + 1 if mtg.month < 12 else 1
                 next_year = mtg.year if mtg.month < 12 else mtg.year + 1
                 next_key = month_key(date(next_year, next_month, 1))
                 post_rate = contracts_dict.get(next_key, month_rate)
             else:
-                post_rate = (month_rate * days_in_month - pre_rate * days_before) / days_after
+                post_rate = (month_rate * days_in_month - pre_rate * d_b) / d_a
+
+            # Sanity clamp: post_rate must be non-negative and within a
+            # reasonable band (±300bp from current EFFR). Wild values indicate
+            # stale/illiquid far-out contracts — clamp to the raw contract rate.
+            if post_rate < 0 or abs(post_rate - current_effr) > 3.0:
+                post_rate = month_rate
 
             prev_post_rate = post_rate
             prev_mtg = mtg
 
-            # ── Discrete probability distribution over 25bp grid ──
-            # The post_rate is the expected (probability-weighted) rate.
-            # Find the two nearest 25bp target rates that bracket post_rate.
-            lower_target = (post_rate // 0.25) * 0.25
-            upper_target = lower_target + 0.25
-
-            # Probability of upper target: linear interpolation
-            if upper_target == lower_target:
-                prob_upper = 0.0
-            else:
-                prob_upper = (post_rate - lower_target) / 0.25
-            prob_lower = 1.0 - prob_upper
-
-            # Build full probability distribution (allow up to +/-200bp from current)
-            prob_dist = {}
-            prob_dist[lower_target] = prob_lower
-            prob_dist[upper_target] = prob_upper
-
-            # Determine the most likely move at this meeting
             delta_bp = (post_rate - pre_rate) * 100
 
-            # Net probability of any move (away from the nearest 25bp to pre_rate)
-            pre_target = round(pre_rate * 4) / 4
+            # ── Probability distribution on 25bp grid ──
+            lower_target = math.floor(post_rate / 0.25) * 0.25
+            upper_target = lower_target + 0.25
+            prob_upper = max(0.0, min(1.0, (post_rate - lower_target) / 0.25))
+            prob_lower = 1.0 - prob_upper
+
+            prob_dist = {lower_target: prob_lower, upper_target: prob_upper}
+
+            # Hold probability = mass on the 25bp target nearest to pre_rate
+            pre_target = round(pre_rate / 0.25) * 0.25
             prob_hold = prob_dist.get(pre_target, 0.0)
             prob_move = 1.0 - prob_hold
 
