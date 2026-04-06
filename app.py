@@ -742,7 +742,7 @@ with tab2:
             d_b = mtg.day  # Days pre-rate is active
             d_a = days_in_month - d_b  # Days post-rate is active
 
-            # ── 1. Establish the Pre-Meeting Rate ──
+# ── 1. Establish the Pre-Meeting Rate ──
             use_chain = (prev_post_rate is not None and prev_mtg is not None 
                          and prev_mtg.year == mtg.year and prev_mtg.month == mtg.month)
             if use_chain:
@@ -751,29 +751,38 @@ with tab2:
                 prior_month = mtg.month - 1 if mtg.month > 1 else 12
                 prior_year = mtg.year if mtg.month > 1 else mtg.year - 1
                 prior_key = month_key(date(prior_year, prior_month, 1))
-                pre_rate = contracts_dict.get(prior_key, current_effr)
+                
+                if prior_key in contracts_dict:
+                    pre_rate = contracts_dict[prior_key]
+                elif prev_post_rate is not None:
+                    pre_rate = prev_post_rate  # Carry forward last known rate if contract is missing
+                else:
+                    pre_rate = current_effr
 
-          # ── 2. Extract the Implied Post-Meeting Rate ──
+            # ── 2. Extract the Implied Post-Meeting Rate ──
             next_month = mtg.month + 1 if mtg.month < 12 else 1
             next_year = mtg.year if mtg.month < 12 else mtg.year + 1
             next_key = month_key(date(next_year, next_month, 1))
             
-            has_next_month_mtg = any(m.year == next_year and m.month == next_month for m in fomc_dates)
+            # Identify if/when the next month has a meeting
+            next_mtgs = [m for m in fomc_dates if m.year == next_year and m.month == next_month]
+            has_next_month_mtg = len(next_mtgs) > 0
+            next_mtg_day = next_mtgs[0].day if has_next_month_mtg else 31
 
             if not has_next_month_mtg and next_key in contracts_dict:
                 # CME Rule: Next month has no meeting. Contract is a pure read.
                 post_rate = contracts_dict[next_key]
+            elif d_a <= 10 and next_key in contracts_dict and next_mtg_day >= 15:
+                # Late-month meeting creates a dangerous multiplier (>3x). 
+                # If the next month's meeting is also late, use the next month's 
+                # contract as a clean proxy to bypass the noise.
+                post_rate = contracts_dict[next_key]
             else:
-                # Interpolate using current month's contract
-                if d_a <= 2:
-                    post_rate = contracts_dict.get(next_key, month_rate)
-                else:
-                    post_rate = (month_rate * days_in_month - pre_rate * d_b) / d_a
+                if d_a == 0: d_a = 1
+                post_rate = (month_rate * days_in_month - pre_rate * d_b) / d_a
 
-            # Sanity clamp for illiquid far-out contracts (Yahoo Finance data quality).
-            # If the calculated post-rate deviates from the month average by more than 50 bps, 
-            # it is bid/ask noise blown up by the interpolation multiplier.
-            if post_rate < 0 or abs(post_rate - month_rate) > 0.50:
+            # Sanity clamp for illiquid far-out curves
+            if post_rate < 0 or abs(post_rate - month_rate) > 0.75:
                 post_rate = contracts_dict.get(next_key, month_rate)
 
             # ── 3. Calculate Marginal Probabilities ──
