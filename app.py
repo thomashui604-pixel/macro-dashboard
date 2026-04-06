@@ -2099,11 +2099,13 @@ with tab7:
             with col_l:
                 st.markdown("##### 🟢 Top 20 Strongest RS Momentum")
                 top20 = rs_snap.nlargest(20, "Momentum")[cols_to_show].reset_index(drop=True)
+                top20.index += 1
                 st.dataframe(top20.style.format({"Ret_5d": "{:.2%}", "Z_Score": "{:+.2f}", "RS_Ratio": "{:.4f}", "Momentum": "{:+.2f}%"}).background_gradient(subset=["Z_Score", "Momentum"], cmap="RdYlGn"), use_container_width=True)
             
             with col_r:
                 st.markdown("##### 🔴 Bottom 20 Weakest RS Momentum")
                 bot20 = rs_snap.nsmallest(20, "Momentum")[cols_to_show].reset_index(drop=True)
+                bot20.index += 1
                 st.dataframe(bot20.style.format({"Ret_5d": "{:.2%}", "Z_Score": "{:+.2f}", "RS_Ratio": "{:.4f}", "Momentum": "{:+.2f}%"}).background_gradient(subset=["Z_Score", "Momentum"], cmap="RdYlGn"), use_container_width=True)
 
         with rs_tabs[1]:
