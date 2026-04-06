@@ -1707,6 +1707,7 @@ with tab6:
         st.markdown("#### Sector Returns")
         now_date = sector_closes.index[-1]
         period_starts = {
+            "1D":  now_date - timedelta(days=1),
             "1W":  now_date - timedelta(days=7),
             "1M":  now_date - timedelta(days=30),
             "3M":  now_date - timedelta(days=91),
@@ -1728,16 +1729,16 @@ with tab6:
         tbl_rows = []
         for sname, ticker in SECTOR_ETFS.items():
             row = {"Sector": sname}
-            for pname in ["1W", "1M", "3M", "YTD"]:
+            for pname in ["1D", "1W", "1M", "3M", "YTD"]:
                 val = period_raw[pname].get(sname)
                 if val is not None:
                     sign = "+" if val >= 0 else ""
-                    row[pname] = f"{sign}{val:.1f}%"
+                    row[pname] = f"{sign}{val:.2f}%"
                 else:
                     row[pname] = "—"
             tbl_rows.append(row)
         def _sort_key(r):
-            v = r.get("YTD", "—")
+            v = r.get("1D", "—")
             try:
                 return float(v.replace("%", "").replace("+", ""))
             except Exception:
@@ -1751,15 +1752,15 @@ with tab6:
         bar_col, range_col, _ = st.columns([1, 1, 3])
         with bar_col:
             bar_window = st.selectbox(
-                "Bar Period", ["1W", "2W", "1M", "3M"],
-                index=0, key="sector_bar_window",
+                "Bar Period", ["1D", "1W", "2W", "1M", "3M"],
+                index=1, key="sector_bar_window",
             )
         with range_col:
             contrib_range = st.selectbox(
-                "Range", ["3M", "6M", "YTD", "1Y", "2Y"],
-                index=2, key="sector_contrib_range",
+                "Range", ["1M", "3M", "6M", "YTD", "1Y", "2Y"],
+                index=3, key="sector_contrib_range",
             )
-        resample_rule = {"1W": "W-FRI", "2W": "2W-FRI", "1M": "ME", "3M": "QE"}[bar_window]
+        resample_rule = {"1D": "D", "1W": "W-FRI", "2W": "2W-FRI", "1M": "ME", "3M": "QE"}[bar_window]
         if contrib_range == "YTD":
             contrib_start = pd.Timestamp(datetime.now().year, 1, 1)
         else:
