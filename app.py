@@ -722,10 +722,13 @@ with tab2:
         month_key = lambda d: f"{d.strftime('%b')} {d.year}"
         results = []
         prev_post_rate = None  # chain from prior meeting
+        prev_mtg = None
 
         for mtg in fomc_dates:
             mk = month_key(mtg)
             if mk not in contracts_dict:
+                prev_post_rate = None  # break chain if month missing
+                prev_mtg = mtg
                 continue
 
             month_rate = contracts_dict[mk]
@@ -734,9 +737,16 @@ with tab2:
             days_before = effective_day - 1
             days_after = days_in_month - days_before
 
-            # Pre-meeting rate: use chained post-rate from previous meeting if
-            # available, otherwise fall back to prior month contract or EFFR
-            if prev_post_rate is not None:
+            # Pre-meeting rate: chain from prior meeting only if it was in the
+            # same or immediately prior month; otherwise use the prior month's
+            # contract to avoid amplifying interpolation errors across gaps.
+            use_chain = False
+            if prev_post_rate is not None and prev_mtg is not None:
+                months_gap = (mtg.year - prev_mtg.year) * 12 + (mtg.month - prev_mtg.month)
+                if months_gap <= 1:
+                    use_chain = True
+
+            if use_chain:
                 pre_rate = prev_post_rate
             else:
                 prior_month = mtg.month - 1 if mtg.month > 1 else 12
@@ -758,6 +768,7 @@ with tab2:
                 post_rate = (month_rate * days_in_month - pre_rate * days_before) / days_after
 
             prev_post_rate = post_rate
+            prev_mtg = mtg
             delta_bp = (post_rate - pre_rate) * 100
 
             # Probability of 25bp move vs hold
