@@ -1986,26 +1986,38 @@ with tab7:
     RS_BASE = "ACWI"
 
     def assign_rs_theme(row):
-        f, d = row["Focus"], str(row["Description"]).lower()
+        f, d = str(row["Focus"]), str(row["Description"]).lower()
+        # 1. Exact Sector Matches
         sector_map = {
-            "Energy": "Energy", "Materials": "Materials", "Information technology": "Tech",
-            "Communication services": "Tech", "Health care": "Defensives", "Utilities": "Defensives",
-            "Consumer staples": "Defensives", "Real estate": "Real Estate", "Financials": "Cyclicals",
-            "Industrials": "Cyclicals", "Consumer discretionary": "Cyclicals", "High dividend yield": "Income / Dividend",
+            "Energy": "Energy", "Materials": "Materials", "Information Technology": "Tech",
+            "Communication services": "Tech", "Health Care": "Defensives", "Utilities": "Defensives",
+            "Consumer Staples": "Defensives", "Real Estate": "Real Estate", "Financials": "Cyclicals",
+            "Industrials": "Cyclicals", "Consumer Discretionary": "Cyclicals", "High dividend yield": "Income / Dividend",
+            "Semiconductors": "Tech", "Aerospace & Defense": "Cyclicals", "Gold Miners": "Materials",
+            "Option Income": "Income / Dividend",
         }
         if f in sector_map: return sector_map[f]
-        if f in ("Total market", "Extended market"):
-            if any(k in d for k in ["emerging", " em ", "emerg"]): return "Emerging Markets"
-            if any(k in d for k in ["international", "world ex", "eafe", "developed", "europe", "japan", "ex-us", "ex us", "pacific", "india", "korea", "brazil", "china", "asia", "germany", "canada"]): return "Int'l / Regional"
-            if any(k in d for k in ["value", "dividend"]): return "Value / Dividend"
-            if any(k in d for k in ["growth", "momentum", "quality", "factor", "profitab"]): return "Smart Beta"
-            return "US Broad"
-        if f == "Large cap":
+        
+        # 2. Regional & Emerging
+        if "Intl" in f: return "Int'l / Regional"
+        if f == "Emerging Markets": return "Emerging Markets"
+        
+        # 3. Factor / Smart Beta
+        if "Factor" in f or any(k in d for k in ["quality", "momentum", "min vol", "profitab"]):
+            return "Smart Beta"
+            
+        # 4. US Style / Size
+        if f in ("US Growth", "Large cap"):
             if any(k in d for k in ["growth", "nasdaq"]): return "US Growth"
             if any(k in d for k in ["value", "dividend", "income"]): return "Value / Dividend"
-            if any(k in d for k in ["europe", "japan", "china", "asia", "international"]): return "Int'l / Regional"
             return "US Broad"
-        if f in ("Mid cap", "Small cap", "Micro cap"): return "Small / Mid Cap"
+        if f in ("Mid cap", "Small cap", "Small / Mid Cap", "Micro cap"): 
+            return "Small / Mid Cap"
+        if f in ("Total market", "Extended market"):
+            if any(k in d for k in ["value", "dividend"]): return "Value / Dividend"
+            return "US Broad"
+            
+        # 5. Thematic Logic
         if f == "Theme":
             if any(k in d for k in ["clean", "solar", "wind", "lithium", "carbon", "climate"]): return "Thematic: Clean Energy"
             if any(k in d for k in ["gold", "mining", "metal", "silver", "uranium", "nuclear", "resource"]): return "Materials"
