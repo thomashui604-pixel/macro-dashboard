@@ -709,9 +709,8 @@ with tab2:
 
     def compute_fedwatch(contracts_dict, current_effr, fomc_dates_raw):
         """
-        CME FedWatch interpolation — chained post-rates.
-        contracts_dict: {"Mar 2026": 3.64, ...} implied rates from FF futures
-        Returns list of dicts with per-meeting implied rates and probabilities.
+        CME FedWatch methodology — discrete probability distribution over
+        a grid of possible target rates, compounded across meetings.
         """
         import calendar
         from datetime import date
@@ -720,26 +719,28 @@ with tab2:
         fomc_dates = [date(y, m, d) for y, m, d in fomc_dates_raw if date(y, m, d) > today]
 
         month_key = lambda d: f"{d.strftime('%b')} {d.year}"
+
+        # Round EFFR to nearest 25bp to establish current target rate
+        current_target = round(current_effr * 4) / 4
+
         results = []
-        prev_post_rate = None  # chain from prior meeting
+        prev_post_rate = None
         prev_mtg = None
 
         for mtg in fomc_dates:
             mk = month_key(mtg)
             if mk not in contracts_dict:
-                prev_post_rate = None  # break chain if month missing
+                prev_post_rate = None
                 prev_mtg = mtg
                 continue
 
             month_rate = contracts_dict[mk]
             days_in_month = calendar.monthrange(mtg.year, mtg.month)[1]
-            effective_day = mtg.day + 1  # rate change effective day after announcement
+            effective_day = mtg.day + 1
             days_before = effective_day - 1
             days_after = days_in_month - days_before
 
-            # Pre-meeting rate: chain from prior meeting only if it was in the
-            # same or immediately prior month; otherwise use the prior month's
-            # contract to avoid amplifying interpolation errors across gaps.
+            # Determine pre-rate
             use_chain = False
             if prev_post_rate is not None and prev_mtg is not None:
                 months_gap = (mtg.year - prev_mtg.year) * 12 + (mtg.month - prev_mtg.month)
@@ -757,8 +758,7 @@ with tab2:
                 else:
                     pre_rate = current_effr
 
-            # If meeting is very late in month (<=2 days after), the month's
-            # contract is dominated by pre-meeting rate — use next month instead
+            # Extract post-rate via day-weighting
             if days_after <= 2:
                 next_month = mtg.month + 1 if mtg.month < 12 else 1
                 next_year = mtg.year if mtg.month < 12 else mtg.year + 1
@@ -769,12 +769,39 @@ with tab2:
 
             prev_post_rate = post_rate
             prev_mtg = mtg
+
+            # ── Discrete probability distribution over 25bp grid ──
+            # The post_rate is the expected (probability-weighted) rate.
+            # Find the two nearest 25bp target rates that bracket post_rate.
+            lower_target = (post_rate // 0.25) * 0.25
+            upper_target = lower_target + 0.25
+
+            # Probability of upper target: linear interpolation
+            if upper_target == lower_target:
+                prob_upper = 0.0
+            else:
+                prob_upper = (post_rate - lower_target) / 0.25
+            prob_lower = 1.0 - prob_upper
+
+            # Build full probability distribution (allow up to +/-200bp from current)
+            prob_dist = {}
+            prob_dist[lower_target] = prob_lower
+            prob_dist[upper_target] = prob_upper
+
+            # Determine the most likely move at this meeting
             delta_bp = (post_rate - pre_rate) * 100
 
-            # Probability of 25bp move vs hold
-            prob_25bp = min(abs(delta_bp) / 25, 1.0)
-            prob_hold = 1.0 - prob_25bp
-            move_type = "cut" if delta_bp < -1 else "hike" if delta_bp > 1 else "hold"
+            # Net probability of any move (away from the nearest 25bp to pre_rate)
+            pre_target = round(pre_rate * 4) / 4
+            prob_hold = prob_dist.get(pre_target, 0.0)
+            prob_move = 1.0 - prob_hold
+
+            if delta_bp < -1:
+                move_type = "cut"
+            elif delta_bp > 1:
+                move_type = "hike"
+            else:
+                move_type = "hold"
 
             # Cumulative change from current EFFR
             cum_bp = (post_rate - current_effr) * 100
@@ -786,10 +813,11 @@ with tab2:
                 "post_rate": post_rate,
                 "delta_bp": delta_bp,
                 "prob_hold": prob_hold,
-                "prob_25bp": prob_25bp,
+                "prob_move": prob_move,
                 "move_type": move_type,
                 "cum_bp": cum_bp,
                 "cum_moves": cum_moves,
+                "prob_dist": prob_dist,
             })
 
         return results
@@ -823,7 +851,7 @@ with tab2:
                         cum_color = RED
 
                     # %Hike/Cut — probability of a move at this meeting
-                    move_label = f'{r["prob_25bp"]*100:.0f}% {r["move_type"]}'
+                    move_label = f'{r["prob_move"]*100:.0f}% {r["move_type"]}'
                     move_color = GREEN if r["move_type"] == "cut" else RED if r["move_type"] == "hike" else MUTED
 
                     # Delta implied rate
