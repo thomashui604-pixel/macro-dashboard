@@ -101,10 +101,18 @@ PLOTLY_LAYOUT = dict(
     paper_bgcolor="#0e1117",
     plot_bgcolor="#0e1117",
     font=dict(family="JetBrains Mono, monospace", size=11, color="#e6edf3"),
-    margin=dict(l=50, r=30, t=50, b=60),
-    legend=dict(orientation="h", yanchor="top", y=-0.15, xanchor="right", x=1, font=dict(size=10)),
-    xaxis=dict(gridcolor="#21262d", zerolinecolor="#30363d"),
-    yaxis=dict(gridcolor="#21262d", zerolinecolor="#30363d"),
+    margin=dict(l=50, r=30, t=60, b=100), # Increased bottom padding for legends
+    legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=-0.35, # Moved lower to clear X-axis
+        xanchor="center",
+        x=0.5,
+        font=dict(size=10),
+        bgcolor="rgba(0,0,0,0)"
+    ),
+    xaxis=dict(gridcolor="#21262d", zerolinecolor="#30363d", title=dict(standoff=20)),
+    yaxis=dict(gridcolor="#21262d", zerolinecolor="#30363d", title=dict(standoff=15)),
     hovermode="x unified",
 )
 
