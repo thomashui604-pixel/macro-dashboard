@@ -758,8 +758,11 @@ with tab2:
                 else:
                     pre_rate = current_effr
 
-            # Extract post-rate via day-weighting
-            if days_after <= 2:
+            # Extract post-rate via day-weighting.
+            # When meeting is late in the month (few days after), the formula
+            # amplifies errors by days_in_month/days_after. Use next month's
+            # contract when amplification > 5x (i.e., days_after < ~6).
+            if days_after <= max(days_in_month // 5, 3):
                 next_month = mtg.month + 1 if mtg.month < 12 else 1
                 next_year = mtg.year if mtg.month < 12 else mtg.year + 1
                 next_key = month_key(date(next_year, next_month, 1))
