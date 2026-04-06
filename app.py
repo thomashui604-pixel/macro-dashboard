@@ -1808,6 +1808,11 @@ with tab6:
                 barmode="relative",
                 yaxis=dict(title="Return (%)", gridcolor="#21262d"),
             )
+            # Hide weekends (non-trading days)
+            fig_contrib.update_xaxes(
+                rangebreaks=[dict(bounds=["sat", "mon"])],
+                gridcolor="#21262d"
+            )
             st.plotly_chart(fig_contrib, use_container_width=True)
 
         # ── Relative Rotation Graph ──
