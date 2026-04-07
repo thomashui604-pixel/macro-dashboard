@@ -633,6 +633,32 @@ with tab1:
                 yaxis2=dict(title="Breakeven (%)", overlaying="y", side="right", gridcolor="#21262d", showgrid=False),
             )
             st.plotly_chart(fig_real, use_container_width=True)
+
+            # ── 5Y5Y Forward Real Rate (r-star proxy) ──
+            st.markdown("#### Real Forward Dynamics (5Y5Y)")
+            st.caption("The 5-year real rate, 5 years forward. Often used as a market-based proxy for 'r-star' (the neutral real rate).")
+            
+            if "DFII5" in real_series and "DFII10" in real_series:
+                # 5Y5Y Forward Real Rate = (10 * 10Y_Real - 5 * 5Y_Real) / 5
+                # Simplified: 2 * 10Y_Real - 5Y_Real
+                fwd_real = (2 * real_series["DFII10"] - real_series["DFII5"]).dropna()
+                
+                if not fwd_real.empty:
+                    fig_fwd = go.Figure()
+                    fig_fwd.add_trace(go.Scatter(
+                        x=fwd_real.index, y=fwd_real.values, name="5Y5Y Fwd Real",
+                        line=dict(color=CYAN, width=2), fill="tozeroy",
+                        fillcolor="rgba(57,210,192,0.05)",
+                    ))
+                    # Add 1.0% and 1.5% reference lines (historical 'neutral' zones)
+                    fig_fwd.add_hline(y=1.0, line_dash="dot", line_color=MUTED, annotation_text="1.0% (Post-GFC Avg)")
+                    fig_fwd.add_hline(y=1.5, line_dash="dot", line_color=MUTED, annotation_text="1.5% (Pre-GFC Avg)")
+                    
+                    fig_fwd.update_layout(make_layout("", height=320))
+                    fig_fwd.update_layout(yaxis_title="Implied Real Rate (%)")
+                    st.plotly_chart(fig_fwd, use_container_width=True)
+            else:
+                st.info("Insufficient TIPS data to compute 5Y5Y Real Forward.")
         else:
             st.info("Real rates data unavailable.")
 
