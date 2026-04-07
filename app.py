@@ -143,7 +143,7 @@ CACHE_DIR = Path("data_cache")
 
 _FRED_TTL = {
     "DFF": 4*3600, "SOFR": 4*3600,
-    "USREC": 24*3600, "A191RL1Q225SBEA": 24*3600,
+    "USREC": 24*3600, "A191RL1Q225SBEA": 24*3600, "GDP": 24*3600,
     "DGS": 4*3600, "DFII": 4*3600, "T5Y": 4*3600, "T10Y": 4*3600,
     "CPIAUCSL": 12*3600, "CPILFESL": 12*3600, "PCEPI": 12*3600,
     "PCEPILFE": 12*3600, "PAYEMS": 12*3600, "UNRATE": 12*3600,
@@ -1617,12 +1617,22 @@ with tab5:
             "Real GDP (QoQ % Annualized)", ylabel="%"
         )
     with act_col2:
-        make_macro_chart({"Industrial Production": "INDPRO"}, "Industrial Production Index", ylabel="Index")
+        make_macro_chart(
+            {"Nominal GDP (YoY%)": "GDP"},
+            "Nominal GDP (YoY %)", yoy_compute=["GDP"], ylabel="%"
+        )
+    
     act_col3, act_col4 = st.columns(2)
     with act_col3:
-        make_macro_chart({"Mfg Production": "IPMAN"}, "Industrial Production: Manufacturing", ylabel="Index")
+        make_macro_chart({"Industrial Production": "INDPRO"}, "Industrial Production Index", ylabel="Index")
     with act_col4:
+        make_macro_chart({"Mfg Production": "IPMAN"}, "Industrial Production: Manufacturing", ylabel="Index")
+    
+    act_col5, act_col6 = st.columns(2)
+    with act_col5:
         make_macro_chart({"CFNAI": "CFNAI"}, "Chicago Fed National Activity Index", ylabel="Index")
+    with act_col6:
+        pass
 
     # ── Consumer ──
     st.markdown("#### Consumer")
