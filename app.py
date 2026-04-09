@@ -232,39 +232,6 @@ def fetch_fred_multi(series_ids, start=None, end=None):
         return pd.DataFrame(result)
     return pd.DataFrame()
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_yf(tickers, period="1y", interval="1d"):
-    """Fetch yfinance data for one or more tickers."""
-    try:
-        if isinstance(tickers, str):
-            tickers = [tickers]
-        data = yf.download(tickers, period=period, interval=interval, auto_adjust=True, progress=False, threads=True)
-        if data.empty:
-            return pd.DataFrame()
-        if isinstance(data.columns, pd.MultiIndex):
-            # Return Close prices
-            if "Close" in data.columns.get_level_values(0):
-                return data["Close"]
-        else:
-            if "Close" in data.columns:
-                return data[["Close"]]
-            return data
-        return data
-    except Exception:
-        return pd.DataFrame()
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def fetch_yf_single(ticker, period="1y", interval="1d"):
-    """Fetch yfinance data for a single ticker, returning a DataFrame."""
-    try:
-        t = yf.Ticker(ticker)
-        data = t.history(period=period, interval=interval, auto_adjust=True)
-        if data.empty:
-            return pd.DataFrame()
-        return data
-    except Exception:
-        return pd.DataFrame()
-
 @st.cache_data(ttl=21600, show_spinner=False)
 def fetch_recession_dates():
     """Fetch NBER recession indicator from FRED."""
@@ -318,11 +285,6 @@ def fmt_pct(val):
         return "N/A"
     sign = "+" if val >= 0 else ""
     return f"{sign}{val:.2f}%"
-
-def fmt_num(val, decimals=2):
-    if val is None or pd.isna(val):
-        return "N/A"
-    return f"{val:,.{decimals}f}"
 
 def lookback_date(lookback_str):
     """Convert lookback string to start date (returns a tz-naive pd.Timestamp)."""
