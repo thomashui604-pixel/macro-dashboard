@@ -577,23 +577,26 @@ with tab1:
         real_start = lookback_date(global_lookback).strftime("%Y-%m-%d")
         real_series = fetch_fred_multi(["DFII5", "DFII10", "T5YIFR", "T10YIE"], start=real_start)
         if not real_series.empty:
-            fig_real = go.Figure()
-            # Real rates on y1
-            if "DFII5" in real_series:
-                fig_real.add_trace(go.Scatter(x=real_series.index, y=real_series["DFII5"], name="5Y TIPS Real", line=dict(color=BLUE, width=1.5)))
-            if "DFII10" in real_series:
-                fig_real.add_trace(go.Scatter(x=real_series.index, y=real_series["DFII10"], name="10Y TIPS Real", line=dict(color=CYAN, width=1.5)))
-            # Breakevens on y2
-            if "T5YIFR" in real_series:
-                fig_real.add_trace(go.Scatter(x=real_series.index, y=real_series["T5YIFR"], name="5Y5Y Fwd BEI", line=dict(color=YELLOW, dash="dash", width=1.5), yaxis="y2"))
-            if "T10YIE" in real_series:
-                fig_real.add_trace(go.Scatter(x=real_series.index, y=real_series["T10YIE"], name="10Y BEI", line=dict(color=RED, dash="dash", width=1.5), yaxis="y2"))
-            layout = make_layout("", height=350)
-            fig_real.update_layout(layout)
-            fig_real.update_layout(
-                yaxis=dict(title="Real Yield (%)", gridcolor="#21262d"),
-                yaxis2=dict(title="Breakeven (%)", overlaying="y", side="right", gridcolor="#21262d", showgrid=False),
+            fig_real = make_subplots(
+                rows=2, cols=1, shared_xaxes=True,
+                vertical_spacing=0.08,
+                subplot_titles=("Real Yields (TIPS)", "Breakeven Inflation"),
             )
+            if "DFII5" in real_series:
+                fig_real.add_trace(go.Scatter(x=real_series.index, y=real_series["DFII5"], name="5Y Real", line=dict(color=BLUE, width=1.5)), row=1, col=1)
+            if "DFII10" in real_series:
+                fig_real.add_trace(go.Scatter(x=real_series.index, y=real_series["DFII10"], name="10Y Real", line=dict(color=CYAN, width=1.5)), row=1, col=1)
+            if "T10YIE" in real_series:
+                fig_real.add_trace(go.Scatter(x=real_series.index, y=real_series["T10YIE"], name="10Y BEI", line=dict(color=YELLOW, width=1.5)), row=2, col=1)
+            if "T5YIFR" in real_series:
+                fig_real.add_trace(go.Scatter(x=real_series.index, y=real_series["T5YIFR"], name="5Y5Y Fwd BEI", line=dict(color=RED, width=1.5, dash="dot")), row=2, col=1)
+            # Zero line on real yields panel
+            fig_real.add_hline(y=0, line_dash="dot", line_color=MUTED, line_width=1, row=1, col=1)
+            layout = make_layout("", height=460)
+            fig_real.update_layout(layout)
+            fig_real.update_layout(legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0))
+            fig_real.update_yaxes(title_text="Yield (%)", row=1, col=1, gridcolor="#21262d")
+            fig_real.update_yaxes(title_text="Rate (%)", row=2, col=1, gridcolor="#21262d")
             st.plotly_chart(fig_real, use_container_width=True)
 
             # ── 5Y5Y Forward Real Rate (r-star proxy) ──
