@@ -612,12 +612,12 @@ with tab1:
                         line=dict(color=CYAN, width=2), fill="tozeroy",
                         fillcolor="rgba(57,210,192,0.05)",
                     ))
-                    # Add 1.0% and 1.5% reference lines (historical 'neutral' zones)
-                    fig_fwd.add_hline(y=1.0, line_dash="dot", line_color=MUTED, annotation_text="1.0% (Post-GFC Avg)")
-                    fig_fwd.add_hline(y=1.5, line_dash="dot", line_color=MUTED, annotation_text="1.5% (Pre-GFC Avg)")
-                    
+                    y_pad = (fwd_real.max() - fwd_real.min()) * 0.1
                     fig_fwd.update_layout(make_layout("", height=320))
-                    fig_fwd.update_layout(yaxis_title="Implied Real Rate (%)")
+                    fig_fwd.update_layout(
+                        yaxis_title="Implied Real Rate (%)",
+                        yaxis=dict(range=[fwd_real.min() - y_pad, fwd_real.max() + y_pad]),
+                    )
                     st.plotly_chart(fig_fwd, use_container_width=True)
             else:
                 st.info("Insufficient TIPS data to compute 5Y5Y Real Forward.")
