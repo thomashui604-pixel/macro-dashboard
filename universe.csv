@@ -36,7 +36,6 @@ IWR,iShares Russell Mid-Cap ETF,Mid cap
 XLF,State Street Financial Select Sector SPDR ETF,Financials
 QUAL,iShares MSCI USA Quality Factor ETF,Total market
 IVE,iShares S&P 500 Value ETF,Large cap
-JEPI,JPMorgan Equity Premium Income ETF,Large cap
 SMH,VanEck Semiconductor ETF,Information technology
 SPYG,State Street SPDR Portfolio S&P 500 Growth ETF,Large cap
 IWB,iShares Russell 1000 ETF,Large cap
@@ -49,7 +48,6 @@ DGRO,iShares Core Dividend Growth ETF,Total market
 SCHB,Schwab U.S. Broad Market ETF,Total market
 SPDW,State Street SPDR Portfolio Developed World ex-US ETF,Total market
 VNQ,Vanguard Real Estate ETF,Real estate
-JEPQ,JPMorgan Nasdaq Equity Premium Income ETF,Large cap
 SPYV,State Street SPDR Portfolio S&P 500 Value ETF,Large cap
 DYNF,iShares U.S. Equity Factor Rotation Active ETF,Total market
 CGDV,Capital Group Dividend Value ETF,Total market
@@ -118,7 +116,6 @@ BAI,iShares A.I. Innovation and Tech Active ETF,Theme
 CIBR,First Trust NASDAQ Cybersecurity ETF,Theme
 EWZ,iShares MSCI Brazil ETF,Total market
 XLG,Invesco S&P 500 Top 50 ETF,Large cap
-QQQI,NEOS Nasdaq 100 High Income ETF,Large cap
 SCHH,Schwab U.S. REIT ETF,Real estate
 GDXJ,VanEck Junior Gold Miners ETF,Materials
 CGUS,Capital Group Core Equity ETF,Total market
@@ -130,11 +127,9 @@ FDVV,Fidelity High Dividend ETF,High dividend yield
 SHLD,Global X Defense Tech ETF,Industrials
 IEUR,iShares Core MSCI Europe ETF,Total market
 FENI,Fidelity Enhanced International ETF,Total market
-SPYI,NEOS S&P 500 High Income ETF,Large cap
 XBI,State Street SPDR S&P Biotech ETF,Health care
 FVD,First Trust VL Dividend,High dividend yield
 IDV,iShares International Select Dividend ETF,High dividend yield
-QYLD,Global X NASDAQ 100 Covered Call ETF,Large cap
 IBB,iShares Biotechnology ETF,Health care
 DFAE,Dimensional Emerging Core Equity Market ETF,Total market
 VPL,Vanguard FTSE Pacific ETF,Total market
@@ -184,10 +179,8 @@ AAXJ,iShares MSCI All Country Asia ex Japan ETF,Total market
 SPHD,Invesco S&P 500 High Dividend Low Volatility ETF,Large cap
 CALF,Pacer US Small Cap Cash Cows ETF,Small cap
 IHI,iShares U.S. Medical Devices ETF,Health care
-GPIQ,Goldman Sachs Nasdaq-100 Premium Income ETF,Large cap
 CORO,iShares International Country Rotation Active ETF,Total market
 FLJP,Franklin FTSE Japan ETF,Total market
-XYLD,Global X S&P 500 Covered Call ETF,Large cap
 REMX,VanEck Rare Earth and Strategic Metals ETF,Materials
 FLIN,Franklin FTSE India ETF,Total market
 CQQQ,Invesco China Technology ETF,Information technology
@@ -208,7 +201,6 @@ ASHR,Xtrackers Harvest CSI 300 China A-Shares ETF,Total market
 EWG,iShares MSCI Germany Index Fund,Total market
 EWA,iShares MSCI Australia Index Fund,Total market
 KBE,State Street SPDR S&P Bank ETF,Financials
-RYLD,Global X Russell 2000 Covered Call ETF,Small cap
 FXN,First Trust Energy AlphaDEX Fund,Energy
 SOXQ,Invesco PHLX Semiconductor ETF,Information technology
 ARKG,ARK Genomic Revolution ETF,Theme
