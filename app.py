@@ -2081,17 +2081,24 @@ with tab7:
         rs_ratio = prices.drop(columns=[RS_BASE], errors="ignore").div(base_price, axis=0)
         rs_sma20 = rs_ratio.rolling(20).mean()
 
-        # 2. Alpha over 5D and 20D windows
-        ret_5d  = prices.pct_change(5)
-        ret_20d = prices.pct_change(20)
-        alpha_5d  = ret_5d.drop(columns=[RS_BASE], errors="ignore").sub(ret_5d[RS_BASE],  axis=0).iloc[-1]
-        alpha_20d = ret_20d.drop(columns=[RS_BASE], errors="ignore").sub(ret_20d[RS_BASE], axis=0).iloc[-1]
+        # 2. Z-scored returns of the RS ratio (Option 1 + 2)
+        # Use RS ratio returns (geometric relative perf) then Z-score vs 252d distribution
+        rs_ret_5d  = rs_ratio.pct_change(5)
+        rs_ret_20d = rs_ratio.pct_change(20)
+
+        def zscore_latest(series_df, window=252):
+            mu  = series_df.rolling(window).mean()
+            sig = series_df.rolling(window).std()
+            return ((series_df - mu) / sig).iloc[-1]
+
+        z5d  = zscore_latest(rs_ret_5d)
+        z20d = zscore_latest(rs_ret_20d)
 
         # 3. RS Rank — percentile within universe (1–99)
         latest_rs = rs_ratio.iloc[-1]
         rs_rank = latest_rs.rank(pct=True).mul(98).add(1).round(0).astype(int)
 
-        # 4. RS Trend — is RS ratio above its 20d SMA and the SMA sloping up?
+        # 4. RS Trend — RS ratio above/below SMA20 with SMA sloping
         sma_slope = rs_sma20.iloc[-1] - rs_sma20.iloc[-5]
         rs_trend = np.where(
             (rs_ratio.iloc[-1] > rs_sma20.iloc[-1]) & (sma_slope > 0), "↑ Rising",
@@ -2102,16 +2109,16 @@ with tab7:
         )
 
         snap = pd.DataFrame({
-            "Symbol":   rs_ratio.columns,
-            "RS_Rank":  rs_rank.values,
-            "Alpha_5D": alpha_5d.values,
-            "Alpha_20D": alpha_20d.values,
+            "Symbol":  rs_ratio.columns,
+            "RS_Rank": rs_rank.values,
+            "Z5D":     z5d.values,
+            "Z20D":    z20d.values,
             "RS_Trend": rs_trend,
             "RS_Ratio": latest_rs.values,
             "RS_SMA20": rs_sma20.iloc[-1].values,
         })
         snap = snap.merge(universe[["Symbol", "Description", "Theme"]], on="Symbol", how="inner")
-        return snap.dropna(subset=["RS_Rank", "Alpha_5D", "Alpha_20D"]), rs_ratio, rs_sma20
+        return snap.dropna(subset=["RS_Rank", "Z5D", "Z20D"]), rs_ratio, rs_sma20
 
     rs_snap, rs_ratio_df, rs_sma_df = get_rs_analytics()
 
@@ -2121,40 +2128,40 @@ with tab7:
         # ── AI Summary ──
         _rs_ctx = "Relative Strength (RS) leaders (by RS Rank vs ACWI):\n"
         for _, r in rs_snap.nlargest(5, "RS_Rank").iterrows():
-            _rs_ctx += f"  {r['Symbol']}: RS Rank {r['RS_Rank']}, 5D Alpha {r['Alpha_5D']:+.2%}, 20D Alpha {r['Alpha_20D']:+.2%}\n"
+            _rs_ctx += f"  {r['Symbol']}: RS Rank {r['RS_Rank']}, Z5D {r['Z5D']:+.2f}, Z20D {r['Z20D']:+.2f}\n"
         ai_summary("rs", _rs_ctx)
 
         rs_tabs = st.tabs(["🔥 Leaders & Laggards", "🔄 Rotation & Rebounds", "🗺️ Theme Map", "📈 Sparklines"])
+        cols_to_show = ["Symbol", "Description", "Theme", "RS_Rank", "Z5D", "Z20D", "RS_Trend"]
+        fmt = {"RS_Rank": "{:.0f}", "Z5D": "{:+.2f}", "Z20D": "{:+.2f}"}
 
         with rs_tabs[0]:
             col_l, col_r = st.columns(2)
-            cols_to_show = ["Symbol", "Description", "Theme", "RS_Rank", "Alpha_5D", "Alpha_20D", "RS_Trend"]
-            fmt = {"RS_Rank": "{:.0f}", "Alpha_5D": "{:+.2%}", "Alpha_20D": "{:+.2%}"}
 
             with col_l:
                 st.markdown("##### 🟢 Top 20 Leaders")
                 top20 = rs_snap.nlargest(20, "RS_Rank")[cols_to_show].reset_index(drop=True)
                 top20.index += 1
-                st.dataframe(top20.style.format(fmt).background_gradient(subset=["Alpha_5D", "Alpha_20D"], cmap="RdYlGn"), use_container_width=True)
+                st.dataframe(top20.style.format(fmt).background_gradient(subset=["Z5D", "Z20D"], cmap="RdYlGn"), use_container_width=True)
 
             with col_r:
                 st.markdown("##### 🔴 Bottom 20 Laggards")
                 bot20 = rs_snap.nsmallest(20, "RS_Rank")[cols_to_show].reset_index(drop=True)
                 bot20.index += 1
-                st.dataframe(bot20.style.format(fmt).background_gradient(subset=["Alpha_5D", "Alpha_20D"], cmap="RdYlGn"), use_container_width=True)
+                st.dataframe(bot20.style.format(fmt).background_gradient(subset=["Z5D", "Z20D"], cmap="RdYlGn"), use_container_width=True)
 
         with rs_tabs[1]:
             st.markdown("#### Relative Rotation Analysis")
+            st.caption("Axes are Z-scores of RS ratio returns vs 252d distribution — comparable across all ETF types.")
             fig_rot = px.scatter(
-                rs_snap, x="Alpha_5D", y="Alpha_20D", color="Theme",
+                rs_snap, x="Z5D", y="Z20D", color="Theme",
                 hover_name="Symbol", hover_data=["Description", "RS_Rank", "RS_Trend"],
-                labels={"Alpha_5D": "5D Alpha (vs ACWI)", "Alpha_20D": "20D Alpha (vs ACWI)"},
+                labels={"Z5D": "5D RS Z-Score", "Z20D": "20D RS Z-Score"},
                 height=600
             )
             fig_rot.add_hline(y=0, line_dash="dash", line_color="grey", opacity=0.5)
             fig_rot.add_vline(x=0, line_dash="dash", line_color="grey", opacity=0.5)
-            # Quadrant labels: x=5D alpha, y=20D alpha
-            for txt, xp, yp in [("Sustained Leaders", 0.03, 0.06), ("Fading", 0.03, -0.06), ("Laggards", -0.03, -0.06), ("Turning Up", -0.03, 0.06)]:
+            for txt, xp, yp in [("Sustained Leaders", 1.5, 1.8), ("Fading", 1.5, -1.8), ("Laggards", -1.5, -1.8), ("Turning Up", -1.5, 1.8)]:
                 fig_rot.add_annotation(x=xp, y=yp, text=f"<b>{txt}</b>", showarrow=False, font=dict(size=12, color="grey"))
             fig_rot.update_layout(make_layout(""))
             st.plotly_chart(fig_rot, use_container_width=True)
@@ -2162,35 +2169,34 @@ with tab7:
             col_trn, col_brk = st.columns(2)
             with col_trn:
                 st.markdown("##### 🔍 Turning Up (Rebounding)")
-                st.caption("20D Alpha < 0 (lagging medium-term) AND 5D Alpha > 0 (outperforming short-term)")
-                turning = rs_snap[(rs_snap['Alpha_20D'] < 0) & (rs_snap['Alpha_5D'] > 0)].sort_values('Alpha_5D', ascending=False).head(15)
-                st.dataframe(turning[["Symbol", "Theme", "RS_Rank", "Alpha_5D", "Alpha_20D", "RS_Trend"]].style.format(fmt), use_container_width=True)
+                st.caption("Z20D < 0 (lagging medium-term) AND Z5D > 0.5 (short-term thrust beginning)")
+                turning = rs_snap[(rs_snap['Z20D'] < 0) & (rs_snap['Z5D'] > 0.5)].sort_values('Z5D', ascending=False).head(15)
+                st.dataframe(turning[["Symbol", "Theme", "RS_Rank", "Z5D", "Z20D", "RS_Trend"]].style.format(fmt), use_container_width=True)
 
             with col_brk:
                 st.markdown("##### ⚠️ Fading (Breaking Down)")
-                st.caption("20D Alpha > 0 (leading medium-term) AND 5D Alpha < 0 (underperforming short-term)")
-                breaking = rs_snap[(rs_snap['Alpha_20D'] > 0) & (rs_snap['Alpha_5D'] < 0)].sort_values('Alpha_5D', ascending=True).head(15)
-                st.dataframe(breaking[["Symbol", "Theme", "RS_Rank", "Alpha_5D", "Alpha_20D", "RS_Trend"]].style.format(fmt), use_container_width=True)
+                st.caption("Z20D > 0 (leading medium-term) AND Z5D < -0.5 (short-term deterioration)")
+                breaking = rs_snap[(rs_snap['Z20D'] > 0) & (rs_snap['Z5D'] < -0.5)].sort_values('Z5D', ascending=True).head(15)
+                st.dataframe(breaking[["Symbol", "Theme", "RS_Rank", "Z5D", "Z20D", "RS_Trend"]].style.format(fmt), use_container_width=True)
 
         with rs_tabs[2]:
             st.markdown("#### Theme Aggregation")
             theme_agg = rs_snap.groupby("Theme").agg(
                 Avg_Rank=("RS_Rank", "mean"),
-                Avg_Alpha_5D=("Alpha_5D", "mean"),
-                Avg_Alpha_20D=("Alpha_20D", "mean"),
+                Avg_Z5D=("Z5D", "mean"),
+                Avg_Z20D=("Z20D", "mean"),
                 N=("Symbol", "count")
-            ).sort_values("Avg_Rank", ascending=False)
+            ).sort_values("Avg_Z20D", ascending=False)
 
             fig_theme = px.bar(
-                theme_agg.reset_index(), x="Avg_Alpha_20D", y="Theme", orientation="h",
-                color="Avg_Alpha_20D", color_continuous_scale="RdYlGn",
-                text="N", title="Theme Avg 20D Alpha vs ACWI", height=500
+                theme_agg.reset_index(), x="Avg_Z20D", y="Theme", orientation="h",
+                color="Avg_Z20D", color_continuous_scale="RdYlGn", range_color=[-2, 2],
+                text="N", title="Theme Avg 20D RS Z-Score", height=500
             )
             fig_theme.update_traces(textposition="outside", texttemplate="%{text} ETFs")
             fig_theme.update_layout(make_layout(""), yaxis=dict(autorange="reversed"))
-            fig_theme.update_coloraxes(colorbar_tickformat="+.1%")
             st.plotly_chart(fig_theme, use_container_width=True)
-            st.dataframe(theme_agg.style.format({"Avg_Rank": "{:.0f}", "Avg_Alpha_5D": "{:+.2%}", "Avg_Alpha_20D": "{:+.2%}", "N": "{:.0f}"}).background_gradient(subset=["Avg_Alpha_5D", "Avg_Alpha_20D"], cmap="RdYlGn"), use_container_width=True)
+            st.dataframe(theme_agg.style.format({"Avg_Rank": "{:.0f}", "Avg_Z5D": "{:+.2f}", "Avg_Z20D": "{:+.2f}", "N": "{:.0f}"}).background_gradient(subset=["Avg_Z5D", "Avg_Z20D"], cmap="RdYlGn"), use_container_width=True)
 
         with rs_tabs[3]:
             st.markdown("#### RS Ratio vs SMA(20) Sparklines (Trailing 60d)")
