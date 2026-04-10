@@ -561,7 +561,8 @@ with tab1:
                 add_recession_shading(fig_spreads, recessions, x_min=spreads.index.min(), x_max=spreads.index.max())
                 # Annotate current values
                 for col in spreads.columns:
-                    last_val = spreads[col].dropna().iloc[-1] if len(spreads[col].dropna()) > 0 else None
+                    _col_clean = spreads[col].dropna()
+                    last_val = _col_clean.iloc[-1] if len(_col_clean) > 0 else None
                     if last_val is not None:
                         fig_spreads.add_annotation(
                             x=spreads.index[-1], y=last_val,
@@ -1564,14 +1565,11 @@ with tab5:
         make_macro_chart({"JOLTS Openings": "JTSJOL"}, "JOLTS Job Openings", ylabel="Thousands")
     with labor_col4:
         make_macro_chart({"Initial Claims": "ICSA"}, "Initial Jobless Claims", ylabel="Thousands")
-    labor_col5, labor_col6 = st.columns(2)
-    with labor_col5:
+    with st.columns(1)[0]:
         make_macro_chart(
             {"Avg Hourly Earnings": "CES0500000003"},
             "Avg Hourly Earnings (YoY %)", yoy_compute=["CES0500000003"], ylabel="%"
         )
-    with labor_col6:
-        pass
 
     # ── Activity ──
     st.markdown("#### Activity")
@@ -1593,11 +1591,8 @@ with tab5:
     with act_col4:
         make_macro_chart({"Mfg Production": "IPMAN"}, "Industrial Production: Manufacturing", ylabel="Index")
     
-    act_col5, act_col6 = st.columns(2)
-    with act_col5:
+    with st.columns(1)[0]:
         make_macro_chart({"CFNAI": "CFNAI"}, "Chicago Fed National Activity Index", ylabel="Index")
-    with act_col6:
-        pass
 
     # ── Consumer ──
     st.markdown("#### Consumer")
@@ -1667,10 +1662,9 @@ with tab6:
 
     @st.cache_data(ttl=3600, show_spinner=False)
     def fetch_sector_data():
-        import yfinance as yf_local
         tickers = list(SECTOR_ETFS.values()) + ["^GSPC"]
         try:
-            data = yf_local.download(
+            data = yf.download(
                 tickers, period="2y", interval="1d",
                 auto_adjust=True, progress=False, threads=True,
             )
@@ -2074,7 +2068,7 @@ with tab7:
         universe = universe[~universe["Symbol"].isin(dedup_map.keys())].copy()
         universe = universe[~universe["Symbol"].isin(RS_EXCLUDE)].copy()
         yield_keywords = ["yieldmax", "option income", "covered call"]
-        universe = universe[~universe["Description"].str.lower().str.contains("|".join(yield_keywords))]
+        universe = universe[~universe["Description"].str.lower().str.contains("|".join(yield_keywords))].copy()
         universe["Theme"] = universe.apply(assign_rs_theme, axis=1)
 
         tickers = universe["Symbol"].tolist()
@@ -2114,7 +2108,7 @@ with tab7:
         rs_rank = rs_perf.rank(pct=True).mul(98).add(1).round(0).astype(int)
 
         # 4. RS Trend — RS ratio above/below SMA20 with SMA sloping
-        sma_slope = rs_sma20.iloc[-1] - rs_sma20.iloc[-5]
+        sma_slope = rs_sma20.iloc[-1] - rs_sma20.iloc[-5] if len(rs_sma20) >= 5 else pd.Series(0, index=rs_sma20.columns)
         rs_trend = np.where(
             (rs_ratio.iloc[-1] > rs_sma20.iloc[-1]) & (sma_slope > 0), "↑ Rising",
             np.where(
@@ -2129,7 +2123,7 @@ with tab7:
             "Z5D":     z5d.values,
             "Z20D":    z20d.values,
             "RS_Trend": rs_trend,
-            "RS_Ratio": latest_rs.values,
+            "RS_Ratio": rs_ratio.iloc[-1].values,
             "RS_SMA20": rs_sma20.iloc[-1].values,
         })
         snap = snap.merge(universe[["Symbol", "Description", "Theme"]], on="Symbol", how="inner")
