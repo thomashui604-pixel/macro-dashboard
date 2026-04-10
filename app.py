@@ -2154,14 +2154,12 @@ with tab7:
             with col_l:
                 st.markdown("##### 🟢 Top 20 Leaders")
                 top20 = rs_snap.nlargest(20, "RS_Rank")[cols_to_show].reset_index(drop=True)
-                top20.index += 1
-                st.dataframe(top20.style.format(fmt).background_gradient(subset=["Z5D", "Z20D"], cmap="RdYlGn"), use_container_width=True)
+                st.dataframe(top20.style.format(fmt).background_gradient(subset=["Z5D", "Z20D"], cmap="RdYlGn"), use_container_width=True, hide_index=True)
 
             with col_r:
                 st.markdown("##### 🔴 Bottom 20 Laggards")
                 bot20 = rs_snap.nsmallest(20, "RS_Rank")[cols_to_show].reset_index(drop=True)
-                bot20.index += 1
-                st.dataframe(bot20.style.format(fmt).background_gradient(subset=["Z5D", "Z20D"], cmap="RdYlGn"), use_container_width=True)
+                st.dataframe(bot20.style.format(fmt).background_gradient(subset=["Z5D", "Z20D"], cmap="RdYlGn"), use_container_width=True, hide_index=True)
 
         with rs_tabs[1]:
             st.markdown("#### Relative Rotation Analysis")
