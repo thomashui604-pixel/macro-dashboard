@@ -2200,14 +2200,14 @@ with tab7:
 
         with rs_tabs[3]:
             st.markdown("#### RS Ratio vs SMA(20) Sparklines (Trailing 60d)")
-            spark_view = st.selectbox("View", ["Top 20 Momentum", "Bottom 20 Momentum", "Turning Momentum"])
-            
-            if spark_view == "Top 20 Momentum":
-                tkrs_to_plot = rs_snap.nlargest(20, "Momentum")["Symbol"].tolist()
-            elif spark_view == "Bottom 20 Momentum":
-                tkrs_to_plot = rs_snap.nsmallest(20, "Momentum")["Symbol"].tolist()
+            spark_view = st.selectbox("View", ["Top 20 RS Rank", "Bottom 20 RS Rank", "Turning Up"])
+
+            if spark_view == "Top 20 RS Rank":
+                tkrs_to_plot = rs_snap.nlargest(20, "RS_Rank")["Symbol"].tolist()
+            elif spark_view == "Bottom 20 RS Rank":
+                tkrs_to_plot = rs_snap.nsmallest(20, "RS_Rank")["Symbol"].tolist()
             else:
-                tkrs_to_plot = rs_snap[(rs_snap['Momentum'] < 0) & (rs_snap['Velocity_Z'] > 1.0)].sort_values('Velocity_Z', ascending=False).head(20)["Symbol"].tolist()
+                tkrs_to_plot = rs_snap[(rs_snap['Z20D'] < 0) & (rs_snap['Z5D'] > 0.5)].sort_values('Z5D', ascending=False).head(20)["Symbol"].tolist()
 
             if tkrs_to_plot:
                 cols = 5
