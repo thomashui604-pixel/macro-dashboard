@@ -2063,7 +2063,7 @@ with tab7:
         return "Other"
 
     @st.cache_data(ttl=3600, show_spinner="Calculating Relative Strength...")
-    def get_rs_analytics():
+    def get_rs_analytics(rs_rank_lookback=126):
         universe = load_universe()
         dedup_map = load_dedup_map()
         
@@ -2107,9 +2107,11 @@ with tab7:
         z5d  = zscore_latest(rs_ret_5d)
         z20d = zscore_latest(rs_ret_20d)
 
-        # 3. RS Rank — percentile within universe (1–99)
-        latest_rs = rs_ratio.iloc[-1]
-        rs_rank = latest_rs.rank(pct=True).mul(98).add(1).round(0).astype(int)
+        # 3. RS Rank — percentile of RS ratio *performance* over the lookback window
+        # Indexes each ETF to a common baseline so absolute price level is irrelevant
+        lookback_start = max(0, len(rs_ratio) - rs_rank_lookback)
+        rs_perf = rs_ratio.iloc[-1] / rs_ratio.iloc[lookback_start] - 1
+        rs_rank = rs_perf.rank(pct=True).mul(98).add(1).round(0).astype(int)
 
         # 4. RS Trend — RS ratio above/below SMA20 with SMA sloping
         sma_slope = rs_sma20.iloc[-1] - rs_sma20.iloc[-5]
@@ -2133,7 +2135,11 @@ with tab7:
         snap = snap.merge(universe[["Symbol", "Description", "Theme"]], on="Symbol", how="inner")
         return snap.dropna(subset=["RS_Rank", "Z5D", "Z20D"]), rs_ratio, rs_sma20
 
-    rs_snap, rs_ratio_df, rs_sma_df = get_rs_analytics()
+    _lookback_options = {"3 Months (63d)": 63, "6 Months (126d)": 126, "12 Months (252d)": 252, "24 Months (504d)": 504}
+    _lookback_label = st.selectbox("RS Rank lookback", list(_lookback_options.keys()), index=1, help="Window used to measure RS ratio performance for the percentile rank. Shorter = more responsive to recent shifts; longer = structural leaders.")
+    rs_rank_lookback = _lookback_options[_lookback_label]
+
+    rs_snap, rs_ratio_df, rs_sma_df = get_rs_analytics(rs_rank_lookback)
 
     if rs_snap.empty:
         st.warning("⚠️ Relative Strength data unavailable.")
