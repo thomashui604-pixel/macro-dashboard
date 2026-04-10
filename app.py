@@ -2007,6 +2007,18 @@ with tab7:
 
     # ── Constants ──
     RS_BASE = "ACWI"
+    # Broad market benchmarks excluded from RS analysis — too generic to carry signal
+    RS_EXCLUDE = {
+        "SPY", "IVV", "VOO", "SPYM",          # S&P 500
+        "QQQ", "QQQM",                          # Nasdaq 100
+        "DIA",                                  # Dow Jones
+        "VTI", "ITOT", "SCHB", "SPTM", "DFUS", # Total US market
+        "VT",                                   # Total World
+        "ACWI", "ACWX",                         # ACWI (benchmark itself)
+        "VXUS", "VEU", "IXUS",                  # Total ex-US
+        "IWB", "SCHX", "SCHK", "OEF",          # Russell 1000 / broad large cap
+        "RSP",                                  # S&P 500 equal weight
+    }
 
     def assign_rs_theme(row):
         f, d = str(row["Focus"]), str(row["Description"]).lower()
@@ -2060,6 +2072,7 @@ with tab7:
             
         # Deduplication & Filtering
         universe = universe[~universe["Symbol"].isin(dedup_map.keys())].copy()
+        universe = universe[~universe["Symbol"].isin(RS_EXCLUDE)].copy()
         yield_keywords = ["yieldmax", "option income", "covered call"]
         universe = universe[~universe["Description"].str.lower().str.contains("|".join(yield_keywords))]
         universe["Theme"] = universe.apply(assign_rs_theme, axis=1)
