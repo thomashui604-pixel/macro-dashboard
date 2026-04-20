@@ -700,7 +700,9 @@ with tab2:
 
     # ── FedWatch-Style Per-Meeting Probabilities ──
     st.markdown("#### FOMC Meeting Probabilities — FedWatch Style")
-    st.caption("Interpolated from monthly FF futures using the CME FedWatch methodology.")
+    st.caption("Interpolated from monthly FF futures (CME FedWatch methodology). "
+               "**P(Cut)** is the cumulative probability that the target rate is net lower "
+               "than today by that meeting, built from the marginal 25bp step tree.")
 
     def get_dynamic_fomc_dates(num_upcoming=12):
         """Dynamically generates future FOMC dates so the app never breaks."""
@@ -822,6 +824,12 @@ with tab2:
             prob_move = 1.0 - prob_hold
             move_type = "cut" if delta_bp < -1 else "hike" if delta_bp > 1 else "hold"
 
+            # Cumulative P(Cut) / P(Hike) — probability that the target rate
+            # is net below / above today by this meeting. Derived from the
+            # running probability tree over 25bp nodes.
+            prob_cut_cum  = sum(p for bp, p in cum_prob_dist.items() if bp < 0)
+            prob_hike_cum = sum(p for bp, p in cum_prob_dist.items() if bp > 0)
+
             results.append({
                 "meeting": mtg.strftime("%b %d, %Y"),
                 "pre_rate": pre_rate,
@@ -829,6 +837,8 @@ with tab2:
                 "delta_bp": delta_bp,
                 "prob_hold": prob_hold,
                 "prob_move": prob_move,
+                "prob_cut_cum":  prob_cut_cum,
+                "prob_hike_cum": prob_hike_cum,
                 "move_type": move_type,
                 "cum_bp": expected_cum_bp,
                 "cum_moves": cum_moves,
@@ -846,9 +856,9 @@ with tab2:
 
             if fw_results:
                 # ── Probability table (Bloomberg style) ──
-                grid_cols = "120px 110px 110px 110px 110px"
+                grid_cols = "130px 100px 90px 100px 100px 100px"
                 tbl_hdr = f'<div style="display:grid; grid-template-columns:{grid_cols}; gap:6px; padding:4px 8px; font-size:0.68rem; color:#8b949e; font-family:JetBrains Mono,monospace; border-bottom:1px solid #30363d; text-transform:uppercase;">'
-                tbl_hdr += '<span>Meeting Date</span><span style="text-align:right">#Hikes/Cuts</span><span style="text-align:right">%Hike/Cut</span><span style="text-align:right">Δ Impl Rate</span><span style="text-align:right">Implied Rate</span></div>'
+                tbl_hdr += '<span>Meeting Date</span><span style="text-align:right">#Hikes/Cuts</span><span style="text-align:right">P(Cut)</span><span style="text-align:right">%Hike/Cut</span><span style="text-align:right">Δ Impl Rate</span><span style="text-align:right">Implied Rate</span></div>'
                 st.markdown(tbl_hdr, unsafe_allow_html=True)
 
                 for r in fw_results:
@@ -867,9 +877,19 @@ with tab2:
                     move_color = GREEN if r["move_type"] == "cut" else RED if r["move_type"] == "hike" else MUTED
                     delta_color = GREEN if r["delta_bp"] < -1 else RED if r["delta_bp"] > 1 else MUTED
 
+                    # Cumulative P(Cut) — probability rate is net below current by this meeting
+                    pcut_pct = r["prob_cut_cum"] * 100
+                    if pcut_pct >= 1:
+                        pcut_label = f"{pcut_pct:.0f}%"
+                        pcut_color = GREEN
+                    else:
+                        pcut_label = "—"
+                        pcut_color = MUTED
+
                     row = f'<div style="display:grid; grid-template-columns:{grid_cols}; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
                     row += f'<span style="color:#8b949e;">{r["meeting"]}</span>'
                     row += f'<span style="text-align:right; color:{cum_color}; font-weight:600;">{cum_label}</span>'
+                    row += f'<span style="text-align:right; color:{pcut_color}; font-weight:600;">{pcut_label}</span>'
                     row += f'<span style="text-align:right; color:{move_color}; font-weight:600;">{move_label}</span>'
                     row += f'<span style="text-align:right; color:{delta_color};">{r["delta_bp"]:+.1f}</span>'
                     row += f'<span style="text-align:right; font-weight:600;">{r["post_rate"]:.3f}%</span>'
