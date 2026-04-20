@@ -2014,46 +2014,83 @@ with tab7:
         "RSP",                                  # S&P 500 equal weight
     }
 
+    # Theme buckets — 16 total:
+    #   US Broad | US Growth | US Value / Div | Small / Mid Cap | Smart Beta
+    #   Tech | Financials | Industrials | Consumer Cyclical | Defensives
+    #   Energy | Materials | Real Estate | Int'l Developed | Emerging Markets | Thematic
     def assign_rs_theme(row):
-        f, d = str(row["Focus"]), str(row["Description"]).lower()
-        # 1. Exact Sector Matches
+        f = str(row["Focus"]).strip().lower()
+        d = str(row["Description"]).lower()
+
+        # 1. Direct sector mapping (Focus values are case-inconsistent in source CSV)
         sector_map = {
-            "Energy": "Energy", "Materials": "Materials", "Information Technology": "Tech",
-            "Communication services": "Tech", "Health Care": "Defensives", "Utilities": "Defensives",
-            "Consumer Staples": "Defensives", "Real Estate": "Real Estate", "Financials": "Cyclicals",
-            "Industrials": "Cyclicals", "Consumer Discretionary": "Cyclicals", "High dividend yield": "Income / Dividend",
-            "Semiconductors": "Tech", "Aerospace & Defense": "Cyclicals", "Gold Miners": "Materials",
-            "Option Income": "Income / Dividend",
+            "energy":                 "Energy",
+            "materials":              "Materials",
+            "information technology": "Tech",
+            "communication services": "Tech",
+            "financials":             "Financials",
+            "industrials":            "Industrials",
+            "consumer discretionary": "Consumer Cyclical",
+            "health care":            "Defensives",
+            "utilities":              "Defensives",
+            "consumer staples":       "Defensives",
+            "real estate":            "Real Estate",
+            "high dividend yield":    "US Value / Div",
         }
-        if f in sector_map: return sector_map[f]
-        
-        # 2. Regional & Emerging
-        if "Intl" in f: return "Int'l / Regional"
-        if f == "Emerging Markets": return "Emerging Markets"
-        
-        # 3. Factor / Smart Beta
-        if "Factor" in f or any(k in d for k in ["quality", "momentum", "min vol", "profitab"]):
-            return "Smart Beta"
-            
-        # 4. US Style / Size
-        if f in ("US Growth", "Large cap"):
-            if any(k in d for k in ["growth", "nasdaq"]): return "US Growth"
-            if any(k in d for k in ["value", "dividend", "income"]): return "Value / Dividend"
-            return "US Broad"
-        if f in ("Mid cap", "Small cap", "Small / Mid Cap", "Micro cap"): 
+        if f in sector_map:
+            return sector_map[f]
+
+        # 2. Size buckets
+        if f in ("mid cap", "small cap"):
             return "Small / Mid Cap"
-        if f in ("Total market", "Extended market"):
-            if any(k in d for k in ["value", "dividend"]): return "Value / Dividend"
+
+        # 3. Broad / style / regional — "Large cap" and "Total market" mix US,
+        #    international, EM, factor, growth, and value; disambiguate via description.
+        if f in ("large cap", "total market", "extended market"):
+            em_keys = ("emerging", "msci em", "china", "korea", "india", "brazil",
+                       "mexico", "latin", "taiwan", "chile", "saudi")
+            intl_keys = ("international", "intl", "ex us", "ex-us", "ex u.s.",
+                         "developed", "eafe", "euro", "japan", "pacific",
+                         "all world", "all country", "global", "acwi",
+                         "canada", "germany", "australia", "united kingdom", "hong kong")
+            factor_keys = ("quality", "momentum", "min vol", "minimum volatility",
+                           "low volatility", "factor", "profitab", "moat")
+            value_keys = ("value", "dividend", "div appreciation", "div growth",
+                          "income", "cash flow")
+
+            if any(k in d for k in em_keys):     return "Emerging Markets"
+            if any(k in d for k in intl_keys):   return "Int'l Developed"
+            if any(k in d for k in factor_keys): return "Smart Beta"
+            if any(k in d for k in ("growth", "nasdaq")): return "US Growth"
+            if any(k in d for k in value_keys):  return "US Value / Div"
+            if f == "extended market":           return "Small / Mid Cap"
             return "US Broad"
-            
-        # 5. Thematic Logic
-        if f == "Theme":
-            if any(k in d for k in ["clean", "solar", "wind", "lithium", "carbon", "climate"]): return "Thematic: Clean Energy"
-            if any(k in d for k in ["gold", "mining", "metal", "silver", "uranium", "nuclear", "resource"]): return "Materials"
-            if any(k in d for k in ["cyber", "cloud", "ai", "robot", "innov", "semi", "software", "fintech", "internet", "tech", "data center"]): return "Tech"
-            if any(k in d for k in ["biotech", "genomic", "health"]): return "Defensives"
-            if any(k in d for k in ["infrastructure", "defense", "aero", "water", "home"]): return "Cyclicals"
-            return "Thematic: Other"
+
+        # 4. Thematic — route to proper sector where exposure is clear,
+        #    fall back to generic Thematic for pure narrative plays.
+        if f == "theme":
+            if any(k in d for k in ("uranium", "gold", "silver", "copper",
+                                    "metals", "mining", "rare earth")):
+                return "Materials"
+            if any(k in d for k in ("china", "emerging")):
+                return "Emerging Markets"
+            if any(k in d for k in ("biotech", "genomic", "pharma", "medical")):
+                return "Defensives"
+            if any(k in d for k in ("home", "construction", "homebuilder",
+                                    "online retail", "e-commerce",
+                                    "autonomous", "electric vehicle")):
+                return "Consumer Cyclical"
+            if any(k in d for k in ("infrastructure", "aerospace", "defense")):
+                return "Industrials"
+            if any(k in d for k in ("payment", "fintech")):
+                return "Financials"
+            if any(k in d for k in ("cyber", "cloud", "artificial intelligence",
+                                    "robot", "innovation", "semi", "software",
+                                    "internet", "tech", "data center", "blockchain",
+                                    "magnificent", "telecommunications")):
+                return "Tech"
+            return "Thematic"
+
         return "Other"
 
     @st.cache_data(ttl=3600, show_spinner="Calculating Relative Strength...")
@@ -2144,7 +2181,7 @@ with tab7:
             _rs_ctx += f"  {r['Symbol']}: RS Rank {r['RS_Rank']}, Z5D {r['Z5D']:+.2f}, Z20D {r['Z20D']:+.2f}\n"
         ai_summary("rs", _rs_ctx)
 
-        rs_tabs = st.tabs(["🔥 Leaders & Laggards", "🔄 Rotation & Rebounds", "🗺️ Theme Map", "📈 Sparklines"])
+        rs_tabs = st.tabs(["🔥 Leaders & Laggards", "🔄 Rotation & Rebounds", "🗺️ Theme Breakdown", "📈 Sparklines"])
         cols_to_show = ["Symbol", "Description", "Theme", "RS_Rank", "Z5D", "Z20D", "RS_Trend"]
         fmt = {"RS_Rank": "{:.0f}", "Z5D": "{:+.2f}", "Z20D": "{:+.2f}"}
 
@@ -2191,7 +2228,7 @@ with tab7:
                 st.dataframe(breaking[["Symbol", "Theme", "RS_Rank", "Z5D", "Z20D", "RS_Trend"]].style.format(fmt), use_container_width=True)
 
         with rs_tabs[2]:
-            st.markdown("#### Theme Aggregation")
+            st.markdown("#### Theme Breakdown")
             theme_agg = rs_snap.groupby("Theme").agg(
                 Avg_Rank=("RS_Rank", "mean"),
                 Avg_Z5D=("Z5D", "mean"),
@@ -2202,12 +2239,28 @@ with tab7:
             fig_theme = px.bar(
                 theme_agg.reset_index(), x="Avg_Z20D", y="Theme", orientation="h",
                 color="Avg_Z20D", color_continuous_scale="RdYlGn", range_color=[-2, 2],
-                text="N", title="Theme Avg 20D RS Z-Score", height=500
+                text="N",
+                labels={"Avg_Z20D": "20D RS Momentum (z-score)", "Theme": ""},
+                height=520
             )
             fig_theme.update_traces(textposition="outside", texttemplate="%{text} ETFs")
-            fig_theme.update_layout(make_layout(""), yaxis=dict(autorange="reversed"))
+            fig_theme.update_layout(make_layout(""), yaxis=dict(autorange="reversed"),
+                                    coloraxis_showscale=False)
             st.plotly_chart(fig_theme, use_container_width=True)
-            st.dataframe(theme_agg.style.format({"Avg_Rank": "{:.0f}", "Avg_Z5D": "{:+.2f}", "Avg_Z20D": "{:+.2f}", "N": "{:.0f}"}).background_gradient(subset=["Avg_Z5D", "Avg_Z20D"], cmap="RdYlGn"), use_container_width=True)
+
+            display_agg = theme_agg.rename(columns={
+                "Avg_Rank": "Avg RS Rank",
+                "Avg_Z5D":  "5D Momentum (z)",
+                "Avg_Z20D": "20D Momentum (z)",
+                "N":        "# ETFs",
+            })
+            st.dataframe(
+                display_agg.style
+                    .format({"Avg RS Rank": "{:.0f}", "5D Momentum (z)": "{:+.2f}",
+                             "20D Momentum (z)": "{:+.2f}", "# ETFs": "{:.0f}"})
+                    .background_gradient(subset=["5D Momentum (z)", "20D Momentum (z)"], cmap="RdYlGn"),
+                use_container_width=True
+            )
 
         with rs_tabs[3]:
             st.markdown("#### RS Ratio vs SMA(20) Sparklines (Trailing 60d)")
