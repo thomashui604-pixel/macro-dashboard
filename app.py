@@ -640,11 +640,11 @@ with tab1:
             fig_spreads.update_layout(yaxis_title="Basis Points", barmode='relative')
             
             if calc_timeframe == "Daily":
+                missing_bdays = pd.bdate_range(start=df_curve.index.min(), end=df_curve.index.max()).difference(df_curve.index)
                 fig_spreads.update_xaxes(
                     rangebreaks=[
                         dict(bounds=["sat", "mon"]), # Weekends
-                        dict(values=["2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26", "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25"]), # 2025 Holidays
-                        dict(values=["2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25"]), # 2026 Holidays
+                        dict(values=missing_bdays.strftime("%Y-%m-%d").tolist()) # Dynamic holidays
                     ]
                 )
                 
@@ -1956,11 +1956,11 @@ with tab6:
             # Only apply rangebreaks for 1D bars to remove gaps. 
             # For 1W+ periods, rangebreaks can cause visual disjoints on holiday weeks.
             if bar_window == "1D":
+                missing_bdays = pd.bdate_range(start=period_closes.index.min(), end=period_closes.index.max()).difference(period_closes.index)
                 fig_contrib.update_xaxes(
                     rangebreaks=[
                         dict(bounds=["sat", "mon"]), # Weekends
-                        dict(values=["2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26", "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25"]), # 2025 Holidays
-                        dict(values=["2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25"]), # 2026 Holidays
+                        dict(values=missing_bdays.strftime("%Y-%m-%d").tolist()) # Dynamic holidays
                     ],
                     gridcolor="#21262d"
                 )
