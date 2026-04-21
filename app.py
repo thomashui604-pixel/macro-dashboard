@@ -554,6 +554,9 @@ with tab1:
 
         if not spread_series.empty and long_sym in spread_series and short_sym in spread_series:
             df_curve = spread_series.copy()
+            # Forward fill to prevent gaps when one FRED series is updated before another
+            df_curve = df_curve.ffill()
+            
             if calc_timeframe == "Weekly":
                 df_curve = df_curve.resample("W-FRI").last().dropna()
             elif calc_timeframe == "Monthly":
@@ -635,6 +638,16 @@ with tab1:
 
             fig_spreads.update_layout(make_layout("", height=350))
             fig_spreads.update_layout(yaxis_title="Basis Points", barmode='relative')
+            
+            if calc_timeframe == "Daily":
+                fig_spreads.update_xaxes(
+                    rangebreaks=[
+                        dict(bounds=["sat", "mon"]), # Weekends
+                        dict(values=["2025-01-01", "2025-01-20", "2025-02-17", "2025-04-18", "2025-05-26", "2025-06-19", "2025-07-04", "2025-09-01", "2025-11-27", "2025-12-25"]), # 2025 Holidays
+                        dict(values=["2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26", "2026-12-25"]), # 2026 Holidays
+                    ]
+                )
+                
             st.plotly_chart(fig_spreads, use_container_width=True)
 
             # Legend
