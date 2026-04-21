@@ -546,11 +546,25 @@ with tab1:
         with col4:
             lookback_period = st.number_input("Change Lookback", min_value=1, value=1, step=1, key="lb_period")
 
-        spread_start = lookback_date(spread_lb).strftime("%Y-%m-%d")
+        # Determine how much prior history we need to fetch to calculate the shifted properties
+        # before truncating to the actual view window.
+        buffer_days = lookback_period * 2  # Daily buffer
+        if calc_timeframe == "Weekly":
+            buffer_days = lookback_period * 8
+        elif calc_timeframe == "Monthly":
+            buffer_days = lookback_period * 32
+            
+        chart_start_date = lookback_date(spread_lb)
+        if spread_lb == "Max":
+            fetch_start_date = None
+        else:
+            fetch_start_date = chart_start_date - timedelta(days=buffer_days)
+
+        fetch_start_str = fetch_start_date.strftime("%Y-%m-%d") if fetch_start_date else None
         pair_map = {"2s10s": ("DGS10", "DGS2"), "2s30s": ("DGS30", "DGS2"), "5s30s": ("DGS30", "DGS5"), "3M10Y": ("DGS10", "DGS3MO")}
         long_sym, short_sym = pair_map[curve_pair]
         
-        spread_series = fetch_fred_multi([long_sym, short_sym], start=spread_start)
+        spread_series = fetch_fred_multi([long_sym, short_sym], start=fetch_start_str)
 
         if not spread_series.empty and long_sym in spread_series and short_sym in spread_series:
             df_curve = spread_series.copy()
@@ -575,6 +589,10 @@ with tab1:
             df_curve["spread_change"] = df_curve["yield_spread"] - df_curve["yield_spread_prev"]
             df_curve["long_yield_change"] = df_curve["long_yield"] - df_curve["long_yield_prev"]
             df_curve["short_yield_change"] = df_curve["short_yield"] - df_curve["short_yield_prev"]
+
+            # Trim to the actual requested view window to strip the buffer
+            if spread_lb != "Max":
+                df_curve = df_curve[df_curve.index >= chart_start_date]
 
             def get_regime_info(row):
                 sc = row["spread_change"]
