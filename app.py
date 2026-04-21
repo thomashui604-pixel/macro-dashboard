@@ -376,17 +376,25 @@ def fetch_kpi_data():
     """Fetch the KPI summary data."""
     kpis = {}
     # yfinance quick data
-    tickers = {"SPX": "^GSPC", "DXY": "DX-Y.NYB", "Gold": "GC=F", "VIX": "^VIX"}
-    for name, ticker in tickers.items():
-        try:
-            t = yf.Ticker(ticker)
-            hist = t.history(period="5d", auto_adjust=True)
-            if len(hist) >= 2:
-                kpis[name] = {"price": hist["Close"].iloc[-1], "chg": safe_pct_change(hist["Close"].iloc[-1], hist["Close"].iloc[-2])}
-            elif len(hist) == 1:
-                kpis[name] = {"price": hist["Close"].iloc[-1], "chg": None}
-        except Exception:
-            pass
+    tickers_dict = {"SPX": "^GSPC", "DXY": "DX-Y.NYB", "Gold": "GC=F", "VIX": "^VIX"}
+    tickers_list = list(tickers_dict.values())
+    try:
+        data = yf.download(tickers_list, period="5d", auto_adjust=True, progress=False, threads=True)
+        if not data.empty:
+            if isinstance(data.columns, pd.MultiIndex):
+                closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
+            else:
+                closes = pd.DataFrame({tickers_list[0]: data["Close"]}) if "Close" in data.columns else pd.DataFrame()
+                
+            for name, ticker in tickers_dict.items():
+                if ticker in closes.columns:
+                    s = closes[ticker].dropna()
+                    if len(s) >= 2:
+                        kpis[name] = {"price": s.iloc[-1], "chg": safe_pct_change(s.iloc[-1], s.iloc[-2])}
+                    elif len(s) == 1:
+                        kpis[name] = {"price": s.iloc[-1], "chg": None}
+    except Exception:
+        pass
     # FRED
     effr = fetch_fred_series("DFF")
     if len(effr) > 0:
@@ -740,16 +748,23 @@ with tab2:
             labels.append(label)
 
         results =[]
-        for ticker, label in zip(tickers, labels):
-            try:
-                t = yf.Ticker(ticker)
-                hist = t.history(period="5d", auto_adjust=True)
-                if not hist.empty:
-                    price = hist["Close"].iloc[-1]
-                    implied_rate = 100 - price
-                    results.append({"contract": label, "ticker": ticker, "price": price, "implied_rate": implied_rate})
-            except Exception:
-                continue
+        try:
+            data = yf.download(tickers, period="5d", auto_adjust=True, progress=False, threads=True)
+            if not data.empty:
+                if isinstance(data.columns, pd.MultiIndex):
+                    closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
+                else:
+                    closes = pd.DataFrame({tickers[0]: data["Close"]}) if "Close" in data.columns else pd.DataFrame()
+                
+                for ticker, label in zip(tickers, labels):
+                    if ticker in closes.columns:
+                        s = closes[ticker].dropna()
+                        if not s.empty:
+                            price = s.iloc[-1]
+                            implied_rate = 100 - price
+                            results.append({"contract": label, "ticker": ticker, "price": price, "implied_rate": implied_rate})
+        except Exception:
+            pass
         return pd.DataFrame(results)
 
     ff_df = fetch_ff_futures()
@@ -1054,7 +1069,8 @@ with tab2:
         months_map = {"F": "Jan", "G": "Feb", "H": "Mar", "J": "Apr", "K": "May", "M": "Jun",
                       "N": "Jul", "Q": "Aug", "U": "Sep", "V": "Oct", "X": "Nov", "Z": "Dec"}
         now = datetime.now()
-        results =[]
+        tickers = []
+        labels = []
         for i in range(8):
             m_idx = (now.month - 1 + i) % 12
             year = now.year + (now.month - 1 + i) // 12
@@ -1062,13 +1078,25 @@ with tab2:
             yr = str(year)[-2:]
             ticker = f"SR1{code}{yr}.CME"
             label = f"{months_map[code]} {year}"
-            try:
-                t = yf.Ticker(ticker)
-                hist = t.history(period="5d", auto_adjust=True)
-                if not hist.empty:
-                    results.append({"contract": label, "implied_rate": 100 - hist["Close"].iloc[-1]})
-            except Exception:
-                continue
+            tickers.append(ticker)
+            labels.append(label)
+
+        results =[]
+        try:
+            data = yf.download(tickers, period="5d", auto_adjust=True, progress=False, threads=True)
+            if not data.empty:
+                if isinstance(data.columns, pd.MultiIndex):
+                    closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
+                else:
+                    closes = pd.DataFrame({tickers[0]: data["Close"]}) if "Close" in data.columns else pd.DataFrame()
+                
+                for ticker, label in zip(tickers, labels):
+                    if ticker in closes.columns:
+                        s = closes[ticker].dropna()
+                        if not s.empty:
+                            results.append({"contract": label, "implied_rate": 100 - s.iloc[-1]})
+        except Exception:
+            pass
         return pd.DataFrame(results)
 
     sofr_strip = fetch_sofr_futures()
@@ -1260,14 +1288,21 @@ with tab4:
     def fetch_vix_data():
         tickers = ["^VIX", "^VIX3M", "^VIX6M", "^MOVE"]
         results = {}
-        for t in tickers:
-            try:
-                d = yf.Ticker(t)
-                hist = d.history(period="3y", auto_adjust=True)
-                if not hist.empty:
-                    results[t] = hist["Close"]
-            except Exception:
-                pass
+        try:
+            data = yf.download(tickers, period="3y", auto_adjust=True, progress=False, threads=True)
+            if not data.empty:
+                if isinstance(data.columns, pd.MultiIndex):
+                    closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
+                else:
+                    closes = pd.DataFrame({tickers[0]: data["Close"]}) if "Close" in data.columns else pd.DataFrame()
+                
+                for t in tickers:
+                    if t in closes.columns:
+                        s = closes[t].dropna()
+                        if not s.empty:
+                            results[t] = s
+        except Exception:
+            pass
         return results
 
     vix_data = fetch_vix_data()
@@ -1365,18 +1400,32 @@ with tab4:
     @st.cache_data(ttl=3600, show_spinner=False)
     def calc_vol_premium():
         try:
-            spx = yf.Ticker("^GSPC").history(period="2y", auto_adjust=True)
-            vix_hist = yf.Ticker("^VIX").history(period="2y", auto_adjust=True)
+            tickers = ["^GSPC", "^VIX"]
+            data = yf.download(tickers, period="2y", auto_adjust=True, progress=False, threads=True)
+            if data.empty:
+                return pd.DataFrame()
+            if isinstance(data.columns, pd.MultiIndex):
+                closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
+            else:
+                closes = pd.DataFrame({tickers[0]: data["Close"]}) if "Close" in data.columns else pd.DataFrame()
+
+            if "^GSPC" not in closes.columns or "^VIX" not in closes.columns:
+                return pd.DataFrame()
+
+            spx = closes["^GSPC"].dropna()
+            vix_hist = closes["^VIX"].dropna()
+            
             if spx.empty or vix_hist.empty:
                 return pd.DataFrame()
+
             # Strip timezones so indexes align (SPX=New_York, VIX=Chicago)
             spx.index = spx.index.tz_localize(None) if spx.index.tz else spx.index
             vix_hist.index = vix_hist.index.tz_localize(None) if vix_hist.index.tz else vix_hist.index
             # Realized vol: 20-day annualized
-            returns = spx["Close"].pct_change()
+            returns = spx.pct_change()
             realized = returns.rolling(20).std() * np.sqrt(252) * 100
             # Align dates
-            df = pd.DataFrame({"Realized Vol (20d)": realized, "VIX (Implied)": vix_hist["Close"]})
+            df = pd.DataFrame({"Realized Vol (20d)": realized, "VIX (Implied)": vix_hist})
             df = df.dropna()
             df["Vol Risk Premium"] = df["VIX (Implied)"] - df["Realized Vol (20d)"]
             return df
