@@ -525,53 +525,121 @@ with tab1:
         fig_curve.update_layout(yaxis_title="Yield (%)", xaxis_title="Tenor")
         st.plotly_chart(fig_curve, use_container_width=True)
 
-        # ── Curve Spreads ──
-        st.markdown("#### Curve Spreads")
-        lb_col, _ = st.columns([1, 4])
-        with lb_col:
-            spread_lb = st.selectbox("Lookback", ["1Y", "2Y", "5Y", "10Y"], index=["1Y", "2Y", "5Y", "10Y"].index(global_lookback), key="spread_lb")
+        # ── Curve Spreads & Regime ──
+        st.markdown("#### Curve Spreads & Regime")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            spread_lb = st.selectbox("Chart Lookback", ["1Y", "2Y", "5Y", "10Y", "Max"], index=["1Y", "2Y", "5Y", "10Y", "Max"].index(global_lookback if global_lookback in ["1Y", "2Y", "5Y", "10Y"] else "1Y"), key="spread_lb")
+        with col2:
+            curve_pair = st.selectbox("Curve Pair", ["2s10s", "2s30s", "5s30s", "3M10Y"], index=0, key="curve_pair")
+        with col3:
+            calc_timeframe = st.selectbox("Timeframe", ["Daily", "Weekly", "Monthly"], index=0, key="calc_tf")
+        with col4:
+            lookback_period = st.number_input("Change Lookback", min_value=1, value=1, step=1, key="lb_period")
 
         spread_start = lookback_date(spread_lb).strftime("%Y-%m-%d")
-        spread_series = fetch_fred_multi(["DGS2", "DGS10", "DGS30", "DGS5", "DGS3MO"], start=spread_start)
-        if not spread_series.empty:
-            spreads = pd.DataFrame(index=spread_series.index)
-            if "DGS2" in spread_series and "DGS10" in spread_series:
-                spreads["2s10s"] = (spread_series["DGS10"] - spread_series["DGS2"]) * 100
-            if "DGS2" in spread_series and "DGS30" in spread_series:
-                spreads["2s30s"] = (spread_series["DGS30"] - spread_series["DGS2"]) * 100
-            if "DGS5" in spread_series and "DGS30" in spread_series:
-                spreads["5s30s"] = (spread_series["DGS30"] - spread_series["DGS5"]) * 100
-            if "DGS3MO" in spread_series and "DGS10" in spread_series:
-                spreads["3M10Y"] = (spread_series["DGS10"] - spread_series["DGS3MO"]) * 100
-            spreads = spreads.dropna(how="all")
+        pair_map = {"2s10s": ("DGS10", "DGS2"), "2s30s": ("DGS30", "DGS2"), "5s30s": ("DGS30", "DGS5"), "3M10Y": ("DGS10", "DGS3MO")}
+        long_sym, short_sym = pair_map[curve_pair]
+        
+        spread_series = fetch_fred_multi([long_sym, short_sym], start=spread_start)
 
-            if not spreads.empty:
-                fig_spreads = go.Figure()
-                colors = {"2s10s": BLUE, "2s30s": CYAN, "5s30s": YELLOW, "3M10Y": RED}
-                for col in spreads.columns:
-                    fig_spreads.add_trace(go.Scatter(
-                        x=spreads.index, y=spreads[col], name=col,
-                        line=dict(color=colors.get(col, MUTED), width=1.5),
-                        hovertemplate=f"{col}: " + "%{y:.0f}bp<extra></extra>"
-                    ))
-                # Zero line
-                fig_spreads.add_hline(y=0, line_dash="dot", line_color=MUTED, line_width=1)
-                # Recession shading
-                recessions = fetch_recession_dates()
-                add_recession_shading(fig_spreads, recessions, x_min=spreads.index.min(), x_max=spreads.index.max())
-                # Annotate current values
-                for col in spreads.columns:
-                    _col_clean = spreads[col].dropna()
-                    last_val = _col_clean.iloc[-1] if len(_col_clean) > 0 else None
-                    if last_val is not None:
-                        fig_spreads.add_annotation(
-                            x=spreads.index[-1], y=last_val,
-                            text=f" {last_val:.0f}bp", showarrow=False,
-                            xanchor="left", font=dict(size=10, color=colors.get(col, MUTED)),
-                        )
-                fig_spreads.update_layout(make_layout("", height=350))
-                fig_spreads.update_layout(yaxis_title="Basis Points")
-                st.plotly_chart(fig_spreads, use_container_width=True)
+        if not spread_series.empty and long_sym in spread_series and short_sym in spread_series:
+            df_curve = spread_series.copy()
+            if calc_timeframe == "Weekly":
+                df_curve = df_curve.resample("W-FRI").last().dropna()
+            elif calc_timeframe == "Monthly":
+                df_curve = df_curve.resample("ME").last().dropna()
+            else:
+                df_curve = df_curve.dropna()
+
+            df_curve["long_yield"] = df_curve[long_sym]
+            df_curve["short_yield"] = df_curve[short_sym]
+            df_curve["yield_spread"] = (df_curve["long_yield"] - df_curve["short_yield"]) * 100
+
+            df_curve["yield_spread_prev"] = df_curve["yield_spread"].shift(lookback_period)
+            df_curve["long_yield_prev"] = df_curve["long_yield"].shift(lookback_period)
+            df_curve["short_yield_prev"] = df_curve["short_yield"].shift(lookback_period)
+
+            df_curve["spread_change"] = df_curve["yield_spread"] - df_curve["yield_spread_prev"]
+            df_curve["long_yield_change"] = df_curve["long_yield"] - df_curve["long_yield_prev"]
+            df_curve["short_yield_change"] = df_curve["short_yield"] - df_curve["short_yield_prev"]
+
+            def get_regime_info(row):
+                sc = row["spread_change"]
+                lc = row["long_yield_change"]
+                shc = row["short_yield_change"]
+                if pd.isna(sc) or pd.isna(lc) or pd.isna(shc):
+                    return ("rgba(128,128,128,0.5)", "Neutral")
+                if lc > 0 and shc < 0:
+                    return ("#f97316", "Steepener Twist")
+                elif lc < 0 and shc > 0:
+                    return ("#eab308", "Flattener Twist")
+                elif sc > 0 and lc > 0:
+                    return ("#ef4444", "Bear Steepener")
+                elif sc > 0 and lc < 0:
+                    return ("#22c55e", "Bull Steepener")
+                elif sc < 0 and lc > 0:
+                    return ("#a855f7", "Bear Flattener")
+                elif sc < 0 and lc < 0:
+                    return ("#3b82f6", "Bull Flattener")
+                else:
+                    return ("rgba(128,128,128,0.5)", "Neutral")
+
+            df_curve["regime_color"] = df_curve.apply(lambda r: get_regime_info(r)[0], axis=1)
+            df_curve["regime_text"] = df_curve.apply(lambda r: get_regime_info(r)[1], axis=1)
+
+            fig_spreads = go.Figure()
+
+            # Regime bars
+            fig_spreads.add_trace(go.Bar(
+                x=df_curve.index, y=df_curve["yield_spread"],
+                name="Regime", marker_color=df_curve["regime_color"],
+                opacity=0.8,
+                hovertemplate="Spread: %{y:.0f}bp<br>Regime: %{customdata}<extra></extra>",
+                customdata=df_curve["regime_text"]
+            ))
+
+            # Spread line
+            fig_spreads.add_trace(go.Scatter(
+                x=df_curve.index, y=df_curve["yield_spread"],
+                name="Yield Spread", line=dict(color="rgba(255,255,255,0.7)", width=2),
+                mode="lines", hoverinfo="skip"
+            ))
+
+            # Zero line
+            fig_spreads.add_hline(y=0, line_dash="dot", line_color=MUTED, line_width=1)
+            
+            # Recession shading
+            recessions = fetch_recession_dates()
+            add_recession_shading(fig_spreads, recessions, x_min=df_curve.index.min(), x_max=df_curve.index.max())
+
+            # Annotate current value
+            last_val = df_curve["yield_spread"].iloc[-1]
+            last_regime = df_curve["regime_text"].iloc[-1]
+            last_color = df_curve["regime_color"].iloc[-1]
+            if not pd.isna(last_val):
+                fig_spreads.add_annotation(
+                    x=df_curve.index[-1], y=last_val,
+                    text=f" {last_val:.0f}bp ({last_regime})", showarrow=False,
+                    xanchor="left", font=dict(size=11, color=last_color),
+                )
+
+            fig_spreads.update_layout(make_layout("", height=350))
+            fig_spreads.update_layout(yaxis_title="Basis Points", barmode='relative')
+            st.plotly_chart(fig_spreads, use_container_width=True)
+
+            # Legend
+            st.markdown(
+                '<div style="display:flex; justify-content:center; gap:12px; flex-wrap:wrap; font-size:0.8rem; margin-top: -15px;">'
+                '<span style="color:#ef4444;">■ Bear Steepener</span>'
+                '<span style="color:#22c55e;">■ Bull Steepener</span>'
+                '<span style="color:#a855f7;">■ Bear Flattener</span>'
+                '<span style="color:#3b82f6;">■ Bull Flattener</span>'
+                '<span style="color:#f97316;">■ Steepener Twist</span>'
+                '<span style="color:#eab308;">■ Flattener Twist</span>'
+                '</div>', unsafe_allow_html=True
+            )
 
         # ── Real Rates & Breakevens ──
         st.markdown("#### Real Rates & Breakevens")
