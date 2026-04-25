@@ -2552,7 +2552,7 @@ with tab8:
     }
 
     GROWTH_KEYS    = ["MANEMP_YoY", "ICSA", "RSXFS_YoY", "INDPRO_YoY", "USSLIND"]
-    INFLATION_KEYS = ["CPIAUCSL_YoY", "PCEPILFE_YoY", "T5YIFR", "PPIFID_YoY"]
+    INFLATION_KEYS = ["CPIAUCSL_YoY", "CPIAUCSL_3M_SAAR", "PCEPILFE_YoY", "T5YIFR", "PPIFID_YoY"]
     LIQUIDITY_KEYS = ["FEDFUNDS_DEV", "WALCL_YoY", "REAL_M2_YoY", "HY_OAS", "T10Y2Y_ADJ"]
 
     GROWTH_LABELS = {
@@ -2563,10 +2563,11 @@ with tab8:
         "USSLIND":      "Leading Index (USSLIND)",
     }
     INFLATION_LABELS = {
-        "CPIAUCSL_YoY":  "CPI YoY",
-        "PCEPILFE_YoY":  "Core PCE YoY",
-        "T5YIFR":        "5Y5Y Fwd Breakeven",
-        "PPIFID_YoY":    "PPI Final Demand YoY",
+        "CPIAUCSL_YoY":       "CPI YoY",
+        "CPIAUCSL_3M_SAAR":   "CPI 3M Annualized (SAAR)",
+        "PCEPILFE_YoY":       "Core PCE YoY",
+        "T5YIFR":             "5Y5Y Fwd Breakeven",
+        "PPIFID_YoY":         "PPI Final Demand YoY",
     }
     LIQUIDITY_LABELS = {
         "FEDFUNDS_DEV":  "Fed Funds vs 12M Trend (inverted)",
@@ -2617,10 +2618,12 @@ with tab8:
         if "INDPRO" in monthly:
             feats["INDPRO_YoY"] = monthly["INDPRO"].pct_change(12) * 100
         if "USSLIND" in monthly:
+            # USSLIND is already the predicted 6-month growth rate of the Coincident Index published as a level
             feats["USSLIND"] = monthly["USSLIND"]
 
         if "CPIAUCSL" in monthly:
             feats["CPIAUCSL_YoY"] = monthly["CPIAUCSL"].pct_change(12) * 100
+            feats["CPIAUCSL_3M_SAAR"] = ((monthly["CPIAUCSL"] / monthly["CPIAUCSL"].shift(3)) ** 4 - 1) * 100
         if "PCEPILFE" in monthly:
             feats["PCEPILFE_YoY"] = monthly["PCEPILFE"].pct_change(12) * 100
         if "T5YIFR" in monthly:
