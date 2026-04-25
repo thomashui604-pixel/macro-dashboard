@@ -2605,7 +2605,7 @@ with tab8:
                 raw[sid] = s
 
         # Resample everything to month-end (last observation of the month)
-        monthly = {sid: s.resample("M").last() for sid, s in raw.items()}
+        monthly = {sid: s.resample("ME").last() for sid, s in raw.items()}
 
         feats = {}
         if "MANEMP" in monthly:
