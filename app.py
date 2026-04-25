@@ -544,7 +544,7 @@ with tab1:
         with col3:
             calc_timeframe = st.selectbox("Timeframe", ["Daily", "Weekly", "Monthly"], index=0, key="calc_tf")
         with col4:
-            lookback_period = st.number_input("Change Lookback", min_value=1, value=1, step=1, key="lb_period")
+            lookback_period = st.number_input("Change Lookback", min_value=1, value=50, step=1, key="lb_period")
 
         # Determine how much prior history we need to fetch to calculate the shifted properties
         # before truncating to the actual view window.
@@ -1133,9 +1133,12 @@ with tab2:
     sofr_strip = fetch_sofr_futures()
     if not sofr_strip.empty:
         fig_sofr = go.Figure()
-        fig_sofr.add_trace(go.Bar(
+        fig_sofr.add_trace(go.Scatter(
             x=sofr_strip["contract"], y=sofr_strip["implied_rate"],
-            marker_color=CYAN, text=[f"{r:.3f}%" for r in sofr_strip["implied_rate"]], textposition="outside",
+            mode="lines+markers+text",
+            line=dict(color=CYAN, width=2),
+            marker=dict(color=CYAN, size=8),
+            text=[f"{r:.3f}%" for r in sofr_strip["implied_rate"]], textposition="top center",
         ))
         fig_sofr.update_layout(make_layout("", height=320))
         fig_sofr.update_layout(yaxis_title="Implied Rate (%)", xaxis_tickangle=-45)
@@ -1597,20 +1600,29 @@ with tab5:
                 _macro_ctx += f"  {label}: {cur:.2f}%\n"
     ai_summary("macro", _macro_ctx)
 
-    def make_macro_chart(series_dict, title, height=350, yoy_compute=None, mom_diff=None, ylabel=""):
+    def make_macro_chart(series_dict, title, height=350, yoy_compute=None, mom_diff=None, ylabel="", chart_type="line", min_years=None):
         """Helper to build macro time series charts."""
+        # Allow individual charts to override the global lookback floor (e.g. quarterly GDP
+        # data is too sparse with a 1Y window).
+        effective_start_dt = lookback_date(macro_lb)
+        if min_years is not None:
+            min_start_dt = pd.Timestamp.now().normalize() - timedelta(days=int(min_years * 365))
+            if min_start_dt < effective_start_dt:
+                effective_start_dt = min_start_dt
+        effective_start_str = effective_start_dt.strftime("%Y-%m-%d")
+
         # For YoY/MoM transforms we need extra history, so fetch 2 extra years
         needs_extra = bool(yoy_compute or mom_diff)
         if needs_extra:
-            extra_start = (lookback_date(macro_lb) - timedelta(days=730)).strftime("%Y-%m-%d")
+            extra_start = (effective_start_dt - timedelta(days=730)).strftime("%Y-%m-%d")
         else:
-            extra_start = macro_start
+            extra_start = effective_start_str
         data = fetch_fred_multi(list(series_dict.values()), start=extra_start)
         if data.empty:
             st.info(f"{title}: data unavailable")
             return
 
-        plot_start = pd.Timestamp(macro_start)
+        plot_start = pd.Timestamp(effective_start_str)
         fig = go.Figure()
         all_dates = []
         color_idx = 0
@@ -1637,26 +1649,36 @@ with tab5:
                 continue
 
             all_dates.extend(s.index.tolist())
-            fig.add_trace(go.Scatter(
-                x=s.index, y=s.values, name=label,
-                line=dict(color=COLORS[color_idx % len(COLORS)], width=1.5),
-                hovertemplate=f"{label}: " + "%{y:.2f}<extra></extra>",
-            ))
+            color = COLORS[color_idx % len(COLORS)]
+            if chart_type == "stacked_bar":
+                fig.add_trace(go.Bar(
+                    x=s.index, y=s.values, name=label,
+                    marker_color=color,
+                    hovertemplate=f"{label}: " + "%{y:.2f}<extra></extra>",
+                ))
+            else:
+                fig.add_trace(go.Scatter(
+                    x=s.index, y=s.values, name=label,
+                    line=dict(color=color, width=1.5),
+                    hovertemplate=f"{label}: " + "%{y:.2f}<extra></extra>",
+                ))
 
-            # Annotate latest value
-            last_date = s.index[-1]
-            last_val = s.iloc[-1]
-            fig.add_annotation(
-                x=last_date, y=last_val,
-                text=f" {last_val:.1f} ({last_date.strftime('%b %y')})",
-                showarrow=False, xanchor="left",
-                font=dict(size=9, color=COLORS[color_idx % len(COLORS)]),
-            )
+                # Annotate latest value (line charts only — stacked bars are illegible with overlapping annotations)
+                last_date = s.index[-1]
+                last_val = s.iloc[-1]
+                fig.add_annotation(
+                    x=last_date, y=last_val,
+                    text=f" {last_val:.1f} ({last_date.strftime('%b %y')})",
+                    showarrow=False, xanchor="left",
+                    font=dict(size=9, color=color),
+                )
             color_idx += 1
 
         if all_dates:
             add_recession_shading(fig, recessions, x_min=min(all_dates), x_max=max(all_dates))
         fig.update_layout(make_layout(title, height=height))
+        if chart_type == "stacked_bar":
+            fig.update_layout(barmode="stack")
         if ylabel:
             fig.update_layout(yaxis_title=ylabel)
         st.plotly_chart(fig, use_container_width=True)
@@ -1693,6 +1715,7 @@ with tab5:
         height=380,
         yoy_compute=["CUSR0000SAF1", "CPIENGSL", "CUSR0000SAH1", "CUSR0000SACL1E", "CUSR0000SAS"],
         ylabel="%",
+        chart_type="stacked_bar",
     )
     cpi_col1, cpi_col2 = st.columns(2)
     with cpi_col1:
@@ -1745,12 +1768,12 @@ with tab5:
     with act_col1:
         make_macro_chart(
             {"Real GDP (QoQ% Ann.)": "A191RL1Q225SBEA"},
-            "Real GDP (QoQ % Annualized)", ylabel="%"
+            "Real GDP (QoQ % Annualized)", ylabel="%", min_years=10
         )
     with act_col2:
         make_macro_chart(
             {"Nominal GDP (YoY%)": "GDP"},
-            "Nominal GDP (YoY %)", yoy_compute=["GDP"], ylabel="%"
+            "Nominal GDP (YoY %)", yoy_compute=["GDP"], ylabel="%", min_years=10
         )
     
     act_col3, act_col4 = st.columns(2)
@@ -2335,7 +2358,7 @@ with tab7:
         return snap.dropna(subset=["RS_Rank", "Z5D", "Z20D"]), rs_ratio, rs_sma20
 
     _lookback_options = {"3 Months (63d)": 63, "6 Months (126d)": 126, "12 Months (252d)": 252, "24 Months (504d)": 504}
-    _lookback_label = st.selectbox("RS Rank lookback", list(_lookback_options.keys()), index=1, help="Window used to measure RS ratio performance for the percentile rank. Shorter = more responsive to recent shifts; longer = structural leaders.")
+    _lookback_label = st.selectbox("RS Rank lookback", list(_lookback_options.keys()), index=0, help="Window used to measure RS ratio performance for the percentile rank. Shorter = more responsive to recent shifts; longer = structural leaders.")
     rs_rank_lookback = _lookback_options[_lookback_label]
 
     rs_snap, rs_ratio_df, rs_sma_df = get_rs_analytics(rs_rank_lookback)
@@ -2377,7 +2400,7 @@ with tab7:
             )
             fig_rot.add_hline(y=0, line_dash="dash", line_color="grey", opacity=0.5)
             fig_rot.add_vline(x=0, line_dash="dash", line_color="grey", opacity=0.5)
-            for txt, xp, yp in [("Sustained Leaders", 1.5, 1.8), ("Fading", 1.5, -1.8), ("Laggards", -1.5, -1.8), ("Turning Up", -1.5, 1.8)]:
+            for txt, xp, yp in [("Sustained Leaders", 1.5, 1.8), ("Turning Up", 1.5, -1.8), ("Laggards", -1.5, -1.8), ("Fading", -1.5, 1.8)]:
                 fig_rot.add_annotation(x=xp, y=yp, text=f"<b>{txt}</b>", showarrow=False, font=dict(size=12, color="grey"))
             fig_rot.update_layout(make_layout(""))
             st.plotly_chart(fig_rot, use_container_width=True)
