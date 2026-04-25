@@ -2582,8 +2582,8 @@ with tab8:
     def _rolling_z(s, window=36, min_periods=24):
         if s is None or len(s) == 0:
             return pd.Series(dtype=float)
-        m = s.ewm(span=window, min_periods=min_periods).mean()
-        sd = s.ewm(span=window, min_periods=min_periods).std()
+        m = s.rolling(window, min_periods=min_periods).mean()
+        sd = s.rolling(window, min_periods=min_periods).std()
         return (s - m) / sd.replace(0, np.nan)
 
     def _classify(score, labels_pos_neutral_neg):
