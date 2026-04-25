@@ -2551,16 +2551,16 @@ with tab8:
         "Recession":                  "#7c1e1e",
     }
 
-    GROWTH_KEYS    = ["MANEMP_YoY", "ICSA_YoY", "RSXFS_YoY", "INDPRO_YoY", "USSLIND_YoY"]
+    GROWTH_KEYS    = ["MANEMP_YoY", "ICSA", "RSXFS_YoY", "INDPRO_YoY", "USSLIND"]
     INFLATION_KEYS = ["CPIAUCSL_YoY", "PCEPILFE_YoY", "T5YIFR", "PPIFID_YoY"]
-    LIQUIDITY_KEYS = ["FEDFUNDS_DEV", "WALCL_YoY", "REAL_M2_YoY", "HY_OAS", "NFCI", "T10Y2Y_ADJ"]
+    LIQUIDITY_KEYS = ["FEDFUNDS_DEV", "WALCL_YoY", "REAL_M2_YoY", "HY_OAS", "T10Y2Y_ADJ"]
 
     GROWTH_LABELS = {
         "MANEMP_YoY":   "Manufacturing Employment YoY (proxy for ISM PMI)",
-        "ICSA_YoY":     "Initial Jobless Claims YoY (inverted)",
+        "ICSA":         "Initial Jobless Claims (inverted)",
         "RSXFS_YoY":    "Real Retail Sales YoY",
         "INDPRO_YoY":   "Industrial Production YoY",
-        "USSLIND_YoY":  "Leading Index YoY (USSLIND)",
+        "USSLIND":      "Leading Index (USSLIND)",
     }
     INFLATION_LABELS = {
         "CPIAUCSL_YoY":  "CPI YoY",
@@ -2573,11 +2573,10 @@ with tab8:
         "WALCL_YoY":     "Fed Balance Sheet YoY",
         "REAL_M2_YoY":   "Real M2 YoY (M2 / CPI)",
         "HY_OAS":        "HY OAS (inverted)",
-        "NFCI":          "Nat. Financial Conditions Index (inverted)",
         "T10Y2Y_ADJ":    "2s10s Slope (Adjusted for 10Y Trend)",
     }
 
-    INVERT = {"ICSA_YoY", "FEDFUNDS_DEV", "HY_OAS", "NFCI"}
+    INVERT = {"ICSA", "FEDFUNDS_DEV", "HY_OAS"}
 
     def _rolling_z(s, window=36, min_periods=24):
         if s is None or len(s) == 0:
@@ -2598,7 +2597,7 @@ with tab8:
         start = "1985-01-01"
         ids = ["MANEMP", "ICSA", "RSXFS", "INDPRO", "USSLIND",
                "CPIAUCSL", "PCEPILFE", "T5YIFR", "PPIFID",
-               "FEDFUNDS", "WALCL", "M2SL", "BAMLH0A0HYM2", "NFCI", "T10Y2Y", "DGS10"]
+               "FEDFUNDS", "WALCL", "M2SL", "BAMLH0A0HYM2", "T10Y2Y", "DGS10"]
         raw = {}
         for sid in ids:
             s = fetch_fred_series(sid, start=start)
@@ -2612,13 +2611,13 @@ with tab8:
         if "MANEMP" in monthly:
             feats["MANEMP_YoY"] = monthly["MANEMP"].pct_change(12) * 100
         if "ICSA" in monthly:
-            feats["ICSA_YoY"] = monthly["ICSA"].pct_change(12) * 100
+            feats["ICSA"] = monthly["ICSA"]
         if "RSXFS" in monthly:
             feats["RSXFS_YoY"] = monthly["RSXFS"].pct_change(12) * 100
         if "INDPRO" in monthly:
             feats["INDPRO_YoY"] = monthly["INDPRO"].pct_change(12) * 100
         if "USSLIND" in monthly:
-            feats["USSLIND_YoY"] = monthly["USSLIND"].pct_change(12) * 100
+            feats["USSLIND"] = monthly["USSLIND"]
 
         if "CPIAUCSL" in monthly:
             feats["CPIAUCSL_YoY"] = monthly["CPIAUCSL"].pct_change(12) * 100
@@ -2640,8 +2639,7 @@ with tab8:
             feats["REAL_M2_YoY"] = real_m2.pct_change(12) * 100
         if "BAMLH0A0HYM2" in monthly:
             feats["HY_OAS"] = monthly["BAMLH0A0HYM2"]
-        if "NFCI" in monthly:
-            feats["NFCI"] = monthly["NFCI"]
+
         if "T10Y2Y" in monthly and "DGS10" in monthly:
             # Regime-Aware Yield Curve Score:
             # - Bull Steepener (rates falling): T10Y2Y_ADJ increases (loosening)
