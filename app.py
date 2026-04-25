@@ -437,7 +437,7 @@ st.markdown(render_kpi_strip(kpi_data), unsafe_allow_html=True)
 # ─────────────────────────────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "📈 Rates & Curve",
     "🏛 Policy Path",
     "🌍 Cross-Asset",
@@ -445,6 +445,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
     "📋 Macro Data",
     "🏗 Sector Analysis",
     "📊 Relative Strength",
+    "🧭 Macro Regime",
 ])
 
 # ═════════════════════════════════════════════════════════════════════
@@ -2481,6 +2482,468 @@ with tab7:
                 fig_sparks.update_yaxes(showticklabels=False, showgrid=False)
                 fig_sparks.update_layout(make_layout("", height=140 * rows))
                 st.plotly_chart(fig_sparks, use_container_width=True)
+
+# ═════════════════════════════════════════════════════════════════════
+# TAB 8 — MACRO REGIME (Growth × Inflation × Liquidity)
+# ═════════════════════════════════════════════════════════════════════
+with tab8:
+    st.markdown("### 🧭 Macro Regime — Growth × Inflation × Liquidity")
+    st.caption("Three-dimensional macro framework: composite z-scores → regime classification → asset class implications.")
+
+    # ── Regime lookup (27 combinations) ──────────────────────────────
+    REGIME_LOOKUP = {
+        # (Growth, Inflation, Liquidity) -> Regime label
+        ("Expansion",  "Inflationary",   "Loose"):   "Goldilocks / Late Cycle",
+        ("Expansion",  "Inflationary",   "Neutral"): "Late Cycle",
+        ("Expansion",  "Inflationary",   "Tight"):   "Overheating",
+        ("Expansion",  "Neutral",        "Loose"):   "Mid-Cycle Expansion",
+        ("Expansion",  "Neutral",        "Neutral"): "Steady Expansion",
+        ("Expansion",  "Neutral",        "Tight"):   "Late Cycle Slowdown Risk",
+        ("Expansion",  "Disinflationary","Loose"):   "Goldilocks / Early Cycle",
+        ("Expansion",  "Disinflationary","Neutral"): "Disinflationary Boom",
+        ("Expansion",  "Disinflationary","Tight"):   "Late Cycle Disinflation",
+        ("Neutral",    "Inflationary",   "Loose"):   "Reflation",
+        ("Neutral",    "Inflationary",   "Neutral"): "Transition (Inflation)",
+        ("Neutral",    "Inflationary",   "Tight"):   "Stagflation Risk",
+        ("Neutral",    "Neutral",        "Loose"):   "Reflation / Recovery",
+        ("Neutral",    "Neutral",        "Neutral"): "Transition",
+        ("Neutral",    "Neutral",        "Tight"):   "Mild Tightening",
+        ("Neutral",    "Disinflationary","Loose"):   "Soft Landing / Recovery",
+        ("Neutral",    "Disinflationary","Neutral"): "Transition (Disinflation)",
+        ("Neutral",    "Disinflationary","Tight"):   "Disinflationary Slowdown",
+        ("Contraction","Inflationary",   "Loose"):   "Stagflation w/ Easing",
+        ("Contraction","Inflationary",   "Neutral"): "Stagflation",
+        ("Contraction","Inflationary",   "Tight"):   "Stagflation",
+        ("Contraction","Neutral",        "Loose"):   "Policy Easing",
+        ("Contraction","Neutral",        "Neutral"): "Slowdown",
+        ("Contraction","Neutral",        "Tight"):   "Hard Landing Risk",
+        ("Contraction","Disinflationary","Loose"):   "Policy Easing / Trough",
+        ("Contraction","Disinflationary","Neutral"): "Recession (Recovery Setup)",
+        ("Contraction","Disinflationary","Tight"):   "Recession",
+    }
+
+    REGIME_COLORS = {
+        "Goldilocks / Late Cycle":    "#3fb950",
+        "Goldilocks / Early Cycle":   "#3fb950",
+        "Late Cycle":                 "#7CB342",
+        "Mid-Cycle Expansion":        "#56d364",
+        "Steady Expansion":           "#3fb950",
+        "Disinflationary Boom":       "#56d364",
+        "Late Cycle Slowdown Risk":   "#d29922",
+        "Late Cycle Disinflation":    "#d29922",
+        "Overheating":                "#f0883e",
+        "Reflation":                  "#39d2c0",
+        "Reflation / Recovery":       "#39d2c0",
+        "Transition (Inflation)":     "#8b949e",
+        "Transition":                 "#8b949e",
+        "Transition (Disinflation)":  "#8b949e",
+        "Mild Tightening":            "#a39922",
+        "Stagflation Risk":           "#f85149",
+        "Stagflation":                "#f85149",
+        "Stagflation w/ Easing":      "#f85149",
+        "Soft Landing / Recovery":    "#58a6ff",
+        "Disinflationary Slowdown":   "#bc8cff",
+        "Policy Easing":              "#58a6ff",
+        "Policy Easing / Trough":     "#58a6ff",
+        "Slowdown":                   "#bc8cff",
+        "Hard Landing Risk":          "#a31515",
+        "Recession (Recovery Setup)": "#7c4dff",
+        "Recession":                  "#7c1e1e",
+    }
+
+    GROWTH_KEYS    = ["MANEMP_YoY", "ICSA", "RSXFS_YoY", "INDPRO_YoY", "USSLIND"]
+    INFLATION_KEYS = ["CPIAUCSL_YoY", "PCEPILFE_YoY", "T5YIFR", "PPIFID_YoY"]
+    LIQUIDITY_KEYS = ["FEDFUNDS_DEV", "WALCL_YoY", "REAL_M2_YoY", "HY_OAS", "T10Y2Y"]
+
+    GROWTH_LABELS = {
+        "MANEMP_YoY":  "Manufacturing Employment YoY (proxy for ISM PMI)",
+        "ICSA":        "Initial Jobless Claims (inverted)",
+        "RSXFS_YoY":   "Real Retail Sales YoY",
+        "INDPRO_YoY":  "Industrial Production YoY",
+        "USSLIND":     "Leading Index (USSLIND)",
+    }
+    INFLATION_LABELS = {
+        "CPIAUCSL_YoY":  "CPI YoY",
+        "PCEPILFE_YoY":  "Core PCE YoY",
+        "T5YIFR":        "5Y5Y Fwd Breakeven",
+        "PPIFID_YoY":    "PPI Final Demand YoY",
+    }
+    LIQUIDITY_LABELS = {
+        "FEDFUNDS_DEV":  "Fed Funds vs 12M Trend (inverted)",
+        "WALCL_YoY":     "Fed Balance Sheet YoY",
+        "REAL_M2_YoY":   "Real M2 YoY (M2 / CPI)",
+        "HY_OAS":        "HY OAS (inverted)",
+        "T10Y2Y":        "2s10s Slope",
+    }
+
+    INVERT = {"ICSA", "FEDFUNDS_DEV", "HY_OAS"}
+
+    def _rolling_z(s, window=36, min_periods=24):
+        if s is None or len(s) == 0:
+            return pd.Series(dtype=float)
+        m = s.rolling(window, min_periods=min_periods).mean()
+        sd = s.rolling(window, min_periods=min_periods).std()
+        return (s - m) / sd.replace(0, np.nan)
+
+    def _classify(score, labels_pos_neutral_neg):
+        if score is None or pd.isna(score):
+            return None
+        if score > 0.5:  return labels_pos_neutral_neg[0]
+        if score < -0.5: return labels_pos_neutral_neg[2]
+        return labels_pos_neutral_neg[1]
+
+    @st.cache_data(ttl=24 * 3600, show_spinner="Loading macro regime data...")
+    def _regime_compute():
+        start = "1985-01-01"
+        ids = ["MANEMP", "ICSA", "RSXFS", "INDPRO", "USSLIND",
+               "CPIAUCSL", "PCEPILFE", "T5YIFR", "PPIFID",
+               "FEDFUNDS", "WALCL", "M2SL", "BAMLH0A0HYM2", "T10Y2Y"]
+        raw = {}
+        for sid in ids:
+            s = fetch_fred_series(sid, start=start)
+            if s is not None and len(s) > 0:
+                raw[sid] = s
+
+        # Resample everything to month-end (last observation of the month)
+        monthly = {sid: s.resample("M").last() for sid, s in raw.items()}
+
+        feats = {}
+        if "MANEMP" in monthly:
+            feats["MANEMP_YoY"] = monthly["MANEMP"].pct_change(12) * 100
+        if "ICSA" in monthly:
+            feats["ICSA"] = monthly["ICSA"]
+        if "RSXFS" in monthly:
+            feats["RSXFS_YoY"] = monthly["RSXFS"].pct_change(12) * 100
+        if "INDPRO" in monthly:
+            feats["INDPRO_YoY"] = monthly["INDPRO"].pct_change(12) * 100
+        if "USSLIND" in monthly:
+            feats["USSLIND"] = monthly["USSLIND"]
+
+        if "CPIAUCSL" in monthly:
+            feats["CPIAUCSL_YoY"] = monthly["CPIAUCSL"].pct_change(12) * 100
+        if "PCEPILFE" in monthly:
+            feats["PCEPILFE_YoY"] = monthly["PCEPILFE"].pct_change(12) * 100
+        if "T5YIFR" in monthly:
+            feats["T5YIFR"] = monthly["T5YIFR"]
+        if "PPIFID" in monthly:
+            feats["PPIFID_YoY"] = monthly["PPIFID"].pct_change(12) * 100
+
+        if "FEDFUNDS" in monthly:
+            ff = monthly["FEDFUNDS"]
+            ff_trend = ff.rolling(12, min_periods=6).mean()
+            feats["FEDFUNDS_DEV"] = ff - ff_trend
+        if "WALCL" in monthly:
+            feats["WALCL_YoY"] = monthly["WALCL"].pct_change(12) * 100
+        if "M2SL" in monthly and "CPIAUCSL" in monthly:
+            real_m2 = monthly["M2SL"] / monthly["CPIAUCSL"]
+            feats["REAL_M2_YoY"] = real_m2.pct_change(12) * 100
+        if "BAMLH0A0HYM2" in monthly:
+            feats["HY_OAS"] = monthly["BAMLH0A0HYM2"]
+        if "T10Y2Y" in monthly:
+            feats["T10Y2Y"] = monthly["T10Y2Y"]
+
+        zscores = {n: _rolling_z(s, 36, 24) for n, s in feats.items()}
+        signed  = {n: (zscores[n] * (-1 if n in INVERT else 1)) for n in zscores}
+
+        def _avg(keys):
+            cols = {k: signed[k] for k in keys if k in signed}
+            if not cols:
+                return pd.Series(dtype=float), pd.DataFrame()
+            df = pd.DataFrame(cols)
+            return df.mean(axis=1, skipna=True), df
+
+        g_score, g_df = _avg(GROWTH_KEYS)
+        i_score, i_df = _avg(INFLATION_KEYS)
+        l_score, l_df = _avg(LIQUIDITY_KEYS)
+
+        combined = pd.DataFrame({
+            "Growth":     g_score,
+            "Inflation":  i_score,
+            "Liquidity":  l_score,
+        }).dropna(how="all")
+
+        combined["Growth_Class"]    = combined["Growth"].apply(
+            lambda x: _classify(x, ("Expansion", "Neutral", "Contraction")))
+        combined["Inflation_Class"] = combined["Inflation"].apply(
+            lambda x: _classify(x, ("Inflationary", "Neutral", "Disinflationary")))
+        combined["Liquidity_Class"] = combined["Liquidity"].apply(
+            lambda x: _classify(x, ("Loose", "Neutral", "Tight")))
+        combined["Regime"] = combined.apply(
+            lambda r: REGIME_LOOKUP.get(
+                (r["Growth_Class"], r["Inflation_Class"], r["Liquidity_Class"])),
+            axis=1,
+        )
+
+        return {
+            "raw": raw, "monthly": monthly, "feats": feats,
+            "zscores": zscores, "signed": signed,
+            "growth_df": g_df, "inflation_df": i_df, "liquidity_df": l_df,
+            "combined": combined,
+        }
+
+    data = _regime_compute()
+    combined = data["combined"]
+
+    if combined.empty or combined["Regime"].dropna().empty:
+        st.warning("Macro regime data unavailable. Check FRED API key and try refreshing.")
+    else:
+        valid = combined.dropna(subset=["Regime"])
+        latest = valid.iloc[-1]
+        latest_date = valid.index[-1]
+        regime = latest["Regime"]
+        color = REGIME_COLORS.get(regime, "#8b949e")
+
+        # ── Section 1 — Current Regime Dashboard ─────────────────────
+        st.markdown("#### Current Regime")
+        st.markdown(
+            f'<div style="background:linear-gradient(135deg,{color}22,{color}08);'
+            f'border:1px solid {color};border-radius:8px;padding:18px 22px;'
+            f'margin-bottom:14px;">'
+            f'<div style="font-family:JetBrains Mono,monospace;font-size:0.72rem;'
+            f'color:#8b949e;text-transform:uppercase;letter-spacing:0.08em;">'
+            f'Regime · {latest_date.strftime("%b %Y")}</div>'
+            f'<div style="font-family:DM Sans,sans-serif;font-size:1.9rem;'
+            f'font-weight:700;color:{color};margin-top:4px;">{regime}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        c1, c2, c3 = st.columns(3)
+        for col, dim, score_key, class_key in [
+            (c1, "Growth",    "Growth",    "Growth_Class"),
+            (c2, "Inflation", "Inflation", "Inflation_Class"),
+            (c3, "Liquidity", "Liquidity", "Liquidity_Class"),
+        ]:
+            score = latest[score_key]
+            cls = latest[class_key]
+            score_color = GREEN if score > 0.5 else (RED if score < -0.5 else YELLOW)
+            with col:
+                st.markdown(
+                    f'<div style="background:#1c2333;border:1px solid #30363d;'
+                    f'border-radius:6px;padding:12px 16px;">'
+                    f'<div style="font-family:JetBrains Mono,monospace;font-size:0.72rem;'
+                    f'color:#8b949e;text-transform:uppercase;letter-spacing:0.06em;">{dim} Score</div>'
+                    f'<div style="font-family:JetBrains Mono,monospace;font-size:1.6rem;'
+                    f'font-weight:600;color:{score_color};">{score:+.2f}</div>'
+                    f'<div style="font-family:DM Sans,sans-serif;font-size:0.9rem;'
+                    f'color:#e6edf3;margin-top:2px;">{cls}</div>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+
+        st.markdown(
+            f'<div style="margin-top:14px;padding:10px 14px;background:#161b22;'
+            f'border-left:3px solid {color};border-radius:4px;font-size:0.92rem;'
+            f'color:#e6edf3;line-height:1.6;">'
+            f'The current regime is <b style="color:{color};">{regime}</b>. '
+            f'Growth is <b>{latest["Growth_Class"]}</b> ({latest["Growth"]:+.2f}σ), '
+            f'inflation is <b>{latest["Inflation_Class"]}</b> ({latest["Inflation"]:+.2f}σ), '
+            f'and financial conditions are <b>{latest["Liquidity_Class"]}</b> '
+            f'({latest["Liquidity"]:+.2f}σ).'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+
+        st.divider()
+
+        # ── Section 2 — Regime Components Detail ─────────────────────
+        st.markdown("#### Regime Components")
+
+        def _component_section(title, dim_score, dim_df, keys, labels, feats, zscores):
+            with st.expander(title, expanded=False):
+                rows = []
+                for k in keys:
+                    if k not in feats:
+                        rows.append({"Series": labels.get(k, k), "Latest": np.nan,
+                                     "12M Δ": np.nan, "Z-score": np.nan})
+                        continue
+                    s = feats[k].dropna()
+                    if len(s) == 0:
+                        rows.append({"Series": labels.get(k, k), "Latest": np.nan,
+                                     "12M Δ": np.nan, "Z-score": np.nan})
+                        continue
+                    latest_v = s.iloc[-1]
+                    prior = s.iloc[-13] if len(s) >= 13 else np.nan
+                    chg = (latest_v - prior) if not pd.isna(prior) else np.nan
+                    z = zscores.get(k)
+                    z_v = z.dropna().iloc[-1] if (z is not None and z.dropna().size > 0) else np.nan
+                    rows.append({
+                        "Series": labels.get(k, k),
+                        "Latest": round(latest_v, 3),
+                        "12M Δ": round(chg, 3) if not pd.isna(chg) else np.nan,
+                        "Z-score": round(z_v, 2) if not pd.isna(z_v) else np.nan,
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=dim_score.index, y=dim_score.values, mode="lines",
+                    name=f"{title.split('—')[0].strip()} Score",
+                    line=dict(color=BLUE, width=2),
+                ))
+                fig.add_hline(y=0.5, line=dict(color=GREEN, width=1, dash="dash"),
+                              annotation_text="+0.5", annotation_position="top right")
+                fig.add_hline(y=-0.5, line=dict(color=RED, width=1, dash="dash"),
+                              annotation_text="-0.5", annotation_position="bottom right")
+                fig.add_hline(y=0, line=dict(color=MUTED, width=1))
+                fig.update_layout(make_layout(f"{title} Composite Z-score", height=320))
+                st.plotly_chart(fig, use_container_width=True)
+
+        _component_section(
+            "Growth Components",
+            combined["Growth"], data["growth_df"],
+            GROWTH_KEYS, GROWTH_LABELS, data["feats"], data["zscores"],
+        )
+        _component_section(
+            "Inflation Components",
+            combined["Inflation"], data["inflation_df"],
+            INFLATION_KEYS, INFLATION_LABELS, data["feats"], data["zscores"],
+        )
+        _component_section(
+            "Liquidity Components",
+            combined["Liquidity"], data["liquidity_df"],
+            LIQUIDITY_KEYS, LIQUIDITY_LABELS, data["feats"], data["zscores"],
+        )
+
+        st.divider()
+
+        # ── Section 3 — Regime History Timeline ──────────────────────
+        st.markdown("#### Regime History Timeline")
+
+        valid_idx = valid.index
+        hist_min = valid_idx.min().to_pydatetime().date()
+        hist_max = valid_idx.max().to_pydatetime().date()
+        default_start = max(hist_min, (valid_idx.max() - pd.DateOffset(years=15)).to_pydatetime().date())
+
+        date_range = st.date_input(
+            "Date range",
+            value=(default_start, hist_max),
+            min_value=hist_min,
+            max_value=hist_max,
+            key="regime_date_range",
+        )
+        if isinstance(date_range, (list, tuple)) and len(date_range) == 2:
+            ds, de = date_range
+        else:
+            ds, de = default_start, hist_max
+        ds_ts = pd.Timestamp(ds)
+        de_ts = pd.Timestamp(de)
+        view = valid.loc[(valid.index >= ds_ts) & (valid.index <= de_ts)]
+
+        if view.empty:
+            st.info("No regime data in the selected range.")
+        else:
+            # Build segments of consecutive same-regime months
+            segs = []
+            cur_regime = None
+            cur_start = None
+            prev_date = None
+            for d, r in view["Regime"].items():
+                if cur_regime is None:
+                    cur_regime, cur_start, prev_date = r, d, d
+                    continue
+                if r != cur_regime:
+                    segs.append((cur_regime, cur_start, prev_date))
+                    cur_regime, cur_start = r, d
+                prev_date = d
+            segs.append((cur_regime, cur_start, prev_date))
+
+            fig = go.Figure()
+            seen = set()
+            for r, s_dt, e_dt in segs:
+                end_show = e_dt + pd.offsets.MonthEnd(1)
+                color = REGIME_COLORS.get(r, "#8b949e")
+                show_legend = r not in seen
+                seen.add(r)
+                fig.add_trace(go.Scatter(
+                    x=[s_dt, end_show, end_show, s_dt, s_dt],
+                    y=[0, 0, 1, 1, 0],
+                    fill="toself",
+                    fillcolor=color,
+                    line=dict(width=0),
+                    mode="lines",
+                    name=r,
+                    legendgroup=r,
+                    showlegend=show_legend,
+                    hovertemplate=f"<b>{r}</b><br>%{{x|%b %Y}}<extra></extra>",
+                ))
+            fig.update_yaxes(showticklabels=False, showgrid=False, range=[0, 1])
+            fig.update_layout(make_layout("Regime by Month", height=260,
+                                          legend=dict(orientation="h", y=-0.25,
+                                                      xanchor="center", x=0.5,
+                                                      font=dict(size=9))))
+            st.plotly_chart(fig, use_container_width=True)
+
+        st.divider()
+
+        # ── Section 4 — Regime Transition Matrix ─────────────────────
+        st.markdown("#### Regime Transitions & Persistence")
+
+        regimes_seq = valid["Regime"].tolist()
+        regime_dates = valid.index.tolist()
+
+        # Build runs (regime, start, end_inclusive, length_months)
+        runs = []
+        if regimes_seq:
+            cur = regimes_seq[0]
+            cur_s = regime_dates[0]
+            cur_len = 1
+            for i in range(1, len(regimes_seq)):
+                if regimes_seq[i] == cur:
+                    cur_len += 1
+                else:
+                    runs.append((cur, cur_s, regime_dates[i - 1], cur_len))
+                    cur = regimes_seq[i]
+                    cur_s = regime_dates[i]
+                    cur_len = 1
+            runs.append((cur, cur_s, regime_dates[-1], cur_len))
+
+        # Average duration per regime
+        dur_by = defaultdict(list)
+        for r, _, _, ln in runs:
+            dur_by[r].append(ln)
+        dur_rows = [{"Regime": r,
+                     "Avg Duration (mo)": round(np.mean(v), 1),
+                     "Occurrences": len(v),
+                     "Total Months": int(np.sum(v))}
+                    for r, v in dur_by.items()]
+        dur_df = pd.DataFrame(dur_rows).sort_values("Total Months", ascending=False)
+
+        # Transition matrix between distinct successive runs
+        from_to = defaultdict(lambda: defaultdict(int))
+        for i in range(len(runs) - 1):
+            from_to[runs[i][0]][runs[i + 1][0]] += 1
+
+        regimes_order = sorted({r for r, _, _, _ in runs})
+        if from_to and regimes_order:
+            mat = np.zeros((len(regimes_order), len(regimes_order)), dtype=float)
+            for i, r_from in enumerate(regimes_order):
+                row_total = sum(from_to[r_from].values())
+                if row_total == 0:
+                    continue
+                for j, r_to in enumerate(regimes_order):
+                    mat[i, j] = from_to[r_from][r_to] / row_total * 100
+
+            colA, colB = st.columns([3, 2])
+            with colA:
+                fig = go.Figure(data=go.Heatmap(
+                    z=mat,
+                    x=regimes_order,
+                    y=regimes_order,
+                    colorscale="Blues",
+                    colorbar=dict(title="% →"),
+                    hovertemplate="From <b>%{y}</b><br>To <b>%{x}</b><br>%{z:.0f}%<extra></extra>",
+                ))
+                fig.update_layout(make_layout("Transition Probability (% from row → column)",
+                                              height=460,
+                                              margin=dict(l=140, r=30, t=60, b=140)))
+                fig.update_xaxes(tickangle=-40)
+                st.plotly_chart(fig, use_container_width=True)
+            with colB:
+                st.markdown("**Average regime duration**")
+                st.dataframe(dur_df, use_container_width=True, hide_index=True)
+        else:
+            st.info("Not enough regime history for transition statistics.")
 
 # ─────────────────────────────────────────────────────────────────────
 # FOOTER
