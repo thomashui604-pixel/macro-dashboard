@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 .streamlit/secrets.toml
+.streamlit/secrets.toml.txt
 .env
 venv/
 data_cache/

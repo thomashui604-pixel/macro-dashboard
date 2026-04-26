@@ -38,12 +38,14 @@ def _fred_api_key() -> str | None:
     if key:
         return key
 
-    # 2. Search every plausible secrets.toml location
-    candidates = [
-        Path(__file__).resolve().parent.parent / ".streamlit" / "secrets.toml",  # project root
-        Path.cwd() / ".streamlit" / "secrets.toml",                               # current working dir
-        Path.home() / ".streamlit" / "secrets.toml",                              # home dir
+    # 2. Search every plausible secrets file location (including Windows .txt variant)
+    roots = [
+        Path(__file__).resolve().parent.parent,
+        Path.cwd(),
+        Path.home(),
     ]
+    filenames = ["secrets.toml", "secrets.toml.txt"]
+    candidates = [r / ".streamlit" / f for r in roots for f in filenames]
     for f in candidates:
         if f.exists():
             for line in f.read_text(encoding="utf-8").splitlines():
