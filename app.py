@@ -452,7 +452,7 @@ st.markdown(render_kpi_strip(kpi_data), unsafe_allow_html=True)
 # ─────────────────────────────────────────────────────────────────────
 # TABS
 # ─────────────────────────────────────────────────────────────────────
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
     "📈 Rates & Curve",
     "🏛 Policy Path",
     "🌍 Cross-Asset",
@@ -461,6 +461,7 @@ tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
     "🏗 Sector Analysis",
     "📊 Relative Strength",
     "🧭 Macro Regime",
+    "🧪 Regime Backtest",
 ])
 
 # ═════════════════════════════════════════════════════════════════════
@@ -2779,6 +2780,162 @@ with tab8:
                 st.dataframe(dur_df, use_container_width=True, hide_index=True)
         else:
             st.info("Not enough regime history for transition statistics.")
+
+# ═════════════════════════════════════════════════════════════════════
+# TAB 9 — REGIME BACKTEST
+# ═════════════════════════════════════════════════════════════════════
+with tab9:
+    st.markdown("### 🧪 Regime Backtest")
+    st.caption("Historical average forward returns for major asset classes, grouped by macro regime. This provides visual validation that the model captures real economic shifts.")
+    
+    @st.cache_data(ttl=24 * 3600, show_spinner="Computing regime backtest...")
+    def _compute_backtest():
+        # Re-fetch the regime data
+        regime_data = _regime_compute()
+        combined = regime_data.get("combined")
+        if combined is None or combined.empty or "Regime" not in combined.columns:
+            return None, None
+            
+        labels = combined[["Regime"]].copy()
+        
+        # Collapse into coarse buckets for better sample size
+        GOLDILOCKS = {"Goldilocks / Late Cycle", "Goldilocks / Early Cycle", "Disinflationary Boom", "Soft Landing / Recovery"}
+        EXPANSION = {"Mid-Cycle Expansion", "Steady Expansion", "Late Cycle", "Reflation", "Reflation / Recovery"}
+        OVERHEATING = {"Overheating", "Late Cycle Slowdown Risk", "Late Cycle Disinflation", "Mild Tightening"}
+        SLOWDOWN = {"Slowdown", "Disinflationary Slowdown", "Policy Easing", "Policy Easing / Trough", "Transition", "Transition (Inflation)", "Transition (Disinflation)"}
+        STAGFLATION = {"Stagflation", "Stagflation Risk", "Stagflation w/ Easing"}
+        RECESSION = {"Recession", "Recession (Recovery Setup)", "Hard Landing Risk"}
+
+        def bucket(r):
+            if pd.isna(r): return None
+            if r in GOLDILOCKS:    return "Goldilocks"
+            if r in EXPANSION:     return "Expansion"
+            if r in OVERHEATING:   return "Overheating"
+            if r in SLOWDOWN:      return "Slowdown"
+            if r in STAGFLATION:   return "Stagflation"
+            if r in RECESSION:     return "Recession"
+            return "Other"
+            
+        labels["Coarse_Regime"] = labels["Regime"].apply(bucket)
+        
+        # Shift index to end of month so it aligns with forward prices better
+        labels.index = labels.index + pd.offsets.MonthEnd(0)
+        
+        # Fetch asset prices: SPY (Eq), AGG (Bonds), GLD (Gold), UUP (Dollar)
+        assets = {"SPY": "SPY", "AGG": "AGG", "GLD": "GLD", "DXY": "DX-Y.NYB"}
+        try:
+            data = yf.download(list(assets.values()), period="max", auto_adjust=True, progress=False, threads=True)
+            if isinstance(data.columns, pd.MultiIndex):
+                prices = data["Close"]
+            else:
+                prices = data
+        except Exception:
+            return None, None
+            
+        if prices.empty:
+            return None, None
+            
+        prices = prices.rename(columns={v: k for k, v in assets.items()})
+        prices = prices.resample("ME").last().dropna(how="all")
+        
+        # Join labels with prices
+        df = labels.join(prices, how="inner")
+        
+        # Calculate forward returns
+        horizons = {"1M": 1, "3M": 3, "6M": 6}
+        results = []
+        
+        for asset in assets.keys():
+            if asset not in df.columns:
+                continue
+            for h_label, h_months in horizons.items():
+                # Forward return
+                df[f"{asset}_{h_label}"] = df[asset].shift(-h_months) / df[asset] - 1.0
+                
+                # Group by coarse regime
+                grp = df.groupby("Coarse_Regime")[f"{asset}_{h_label}"]
+                means = grp.mean() * 100 # percentage
+                counts = grp.count()
+                
+                for regime in means.index:
+                    if counts[regime] > 3: # Need at least a few data points
+                        results.append({
+                            "Regime": regime,
+                            "Asset": asset,
+                            "Horizon": h_label,
+                            "Avg_Return": means[regime],
+                            "N": counts[regime]
+                        })
+                        
+        return pd.DataFrame(results), df
+
+    bt_results, bt_df = _compute_backtest()
+    
+    if bt_results is None or bt_results.empty:
+        st.warning("Backtest data is currently unavailable. Please check data sources.")
+    else:
+        st.markdown("#### Average Forward Returns by Macro Regime")
+        
+        # Controls
+        bt_col1, bt_col2 = st.columns([1, 3])
+        with bt_col1:
+            sel_asset = st.selectbox("Asset", ["SPY", "AGG", "GLD", "DXY"], index=0, key="bt_asset")
+            sel_horizon = st.selectbox("Forward Horizon", ["1M", "3M", "6M"], index=1, key="bt_horizon")
+            
+        # Filter data
+        filtered = bt_results[(bt_results["Asset"] == sel_asset) & (bt_results["Horizon"] == sel_horizon)]
+        
+        if filtered.empty:
+            st.info(f"Not enough data for {sel_asset} over {sel_horizon}.")
+        else:
+            # Sort logically by cycle
+            regime_order = ["Goldilocks", "Expansion", "Overheating", "Stagflation", "Slowdown", "Recession"]
+            filtered["Regime_Cat"] = pd.Categorical(filtered["Regime"], categories=regime_order, ordered=True)
+            filtered = filtered.sort_values("Regime_Cat")
+            
+            fig_bt = go.Figure()
+            colors = [GREEN if val >= 0 else RED for val in filtered["Avg_Return"]]
+            
+            fig_bt.add_trace(go.Bar(
+                x=filtered["Regime"],
+                y=filtered["Avg_Return"],
+                text=[f"{v:+.1f}%<br>(n={n})" for v, n in zip(filtered["Avg_Return"], filtered["N"])],
+                textposition="outside",
+                marker_color=colors,
+                hovertemplate="Regime: %{x}<br>Avg Return: %{y:.2f}%<br>Occurrences: %{customdata}<extra></extra>",
+                customdata=filtered["N"]
+            ))
+            
+            fig_bt.add_hline(y=0, line_dash="solid", line_color=MUTED, line_width=1)
+            
+            y_max = filtered["Avg_Return"].abs().max() * 1.3
+            if pd.isna(y_max) or y_max == 0: y_max = 5
+            
+            fig_bt.update_layout(
+                make_layout(f"Average {sel_horizon} Forward Return for {sel_asset} by Regime Bucket", height=400),
+                yaxis_title="Average Return (%)",
+                yaxis=dict(range=[-y_max, y_max])
+            )
+            st.plotly_chart(fig_bt, use_container_width=True)
+            
+            with st.expander("Show Data Table"):
+                # Pivot table to show all horizons for the selected asset
+                asset_all = bt_results[bt_results["Asset"] == sel_asset].copy()
+                pivot = asset_all.pivot_table(index="Regime", columns="Horizon", values=["Avg_Return", "N"])
+                # Flatten multi-index columns
+                pivot.columns = [f"{col[1]} {col[0].replace('Avg_Return', 'Return (%)').replace('N', 'Count')}" for col in pivot.columns]
+                
+                # Order columns
+                cols = []
+                for h in ["1M", "3M", "6M"]:
+                    cols.extend([c for c in pivot.columns if h in c])
+                pivot = pivot[cols]
+                
+                # Format
+                format_dict = {c: "{:+.2f}%" for c in pivot.columns if "Return" in c}
+                format_dict.update({c: "{:.0f}" for c in pivot.columns if "Count" in c})
+                
+                st.dataframe(pivot.style.format(format_dict).background_gradient(subset=[c for c in pivot.columns if "Return" in c], cmap="RdYlGn"), use_container_width=True)
 
 # ─────────────────────────────────────────────────────────────────────
 # FOOTER
