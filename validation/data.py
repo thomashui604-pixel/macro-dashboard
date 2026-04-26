@@ -33,14 +33,20 @@ ASSET_TICKERS = {
 
 # ── FRED ──────────────────────────────────────────────────────────────
 def _fred_api_key() -> str | None:
+    # 1. Environment variable
     key = os.environ.get("FRED_API_KEY")
     if key:
         return key
-    secrets_file = Path.home() / ".streamlit" / "secrets.toml"
-    project_secrets = Path(__file__).resolve().parent.parent / ".streamlit" / "secrets.toml"
-    for f in (project_secrets, secrets_file):
+
+    # 2. Search every plausible secrets.toml location
+    candidates = [
+        Path(__file__).resolve().parent.parent / ".streamlit" / "secrets.toml",  # project root
+        Path.cwd() / ".streamlit" / "secrets.toml",                               # current working dir
+        Path.home() / ".streamlit" / "secrets.toml",                              # home dir
+    ]
+    for f in candidates:
         if f.exists():
-            for line in f.read_text().splitlines():
+            for line in f.read_text(encoding="utf-8").splitlines():
                 if line.strip().startswith("FRED_API_KEY"):
                     return line.split("=", 1)[1].strip().strip('"').strip("'")
     return None
@@ -56,8 +62,16 @@ def fetch_fred(series_id: str, start: str = rm.DEFAULT_START) -> pd.Series:
 
     api_key = _fred_api_key()
     if not api_key:
+        from pathlib import Path as _P
+        looked = [
+            str(_P(__file__).resolve().parent.parent / ".streamlit" / "secrets.toml"),
+            str(_P.cwd() / ".streamlit" / "secrets.toml"),
+            str(_P.home() / ".streamlit" / "secrets.toml"),
+        ]
         raise RuntimeError(
-            "FRED_API_KEY not found. Set the env var or add it to .streamlit/secrets.toml."
+            "FRED_API_KEY not found.\n"
+            "Looked in:\n" + "\n".join(f"  {p}" for p in looked) +
+            "\n\nMake sure secrets.toml contains:  FRED_API_KEY = \"your_key\""
         )
     params = {
         "series_id": series_id,
