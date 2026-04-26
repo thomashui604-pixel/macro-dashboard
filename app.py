@@ -2563,11 +2563,11 @@ with tab8:
         "USSLIND":      "Leading Index (USSLIND)",
     }
     INFLATION_LABELS = {
-        "CPIAUCSL_YoY":       "CPI YoY",
-        "CPIAUCSL_3M_SAAR":   "CPI 3M Annualized (SAAR)",
-        "PCEPILFE_YoY":       "Core PCE YoY",
-        "T5YIFR":             "5Y5Y Fwd Breakeven",
-        "PPIFID_YoY":         "PPI Final Demand YoY",
+        "CPIAUCSL_YoY":     "CPI YoY",
+        "CPIAUCSL_3M_SAAR": "CPI 3M Annualized (SAAR)",
+        "PCEPILFE_YoY":     "Core PCE YoY",
+        "T5YIFR":           "5Y5Y Fwd Breakeven",
+        "PPIFID_YoY":       "PPI Final Demand YoY",
     }
     LIQUIDITY_LABELS = {
         "FEDFUNDS_DEV":  "Fed Funds vs 12M Trend (inverted)",
@@ -2618,11 +2618,13 @@ with tab8:
         if "INDPRO" in monthly:
             feats["INDPRO_YoY"] = monthly["INDPRO"].pct_change(12) * 100
         if "USSLIND" in monthly:
-            # USSLIND is already the predicted 6-month growth rate of the Coincident Index published as a level
+            # USSLIND is Philadelphia Fed's predicted 6-month growth rate of the
+            # Coincident Index — already a growth rate, not a raw index level.
             feats["USSLIND"] = monthly["USSLIND"]
 
         if "CPIAUCSL" in monthly:
             feats["CPIAUCSL_YoY"] = monthly["CPIAUCSL"].pct_change(12) * 100
+            # 3M annualized rate catches turning points ~9 months faster than YoY
             feats["CPIAUCSL_3M_SAAR"] = ((monthly["CPIAUCSL"] / monthly["CPIAUCSL"].shift(3)) ** 4 - 1) * 100
         if "PCEPILFE" in monthly:
             feats["PCEPILFE_YoY"] = monthly["PCEPILFE"].pct_change(12) * 100
