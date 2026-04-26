@@ -4,3 +4,6 @@ __pycache__/
 .env
 venv/
 data_cache/
+validation/_cache/
+validation/outputs/
+.ipynb_checkpoints/
