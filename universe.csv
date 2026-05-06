@@ -1,257 +1,257 @@
-Symbol,Description,Focus
-VOO,Vanguard S&P 500 ETF,Large cap
-IVV,iShares Core S&P 500 ETF,Large cap
-SPY,SPDR S&P 500 ETF TRUST,Large cap
-VTI,Vanguard Total Stock Market ETF,Total market
-QQQ,"Invesco QQQ Trust, Series 1",Large cap
-VEA,Vanguard FTSE Developed Markets ETF,Total market
-VUG,Vanguard Growth ETF,Large cap
-IEFA,iShares Core MSCI EAFE ETF,Total market
-VTV,Vanguard Value ETF,Large cap
-IEMG,iShares Core MSCI Emerging Markets ETF,Total market
-VXUS,Vanguard Total International Stock ETF,Total market
-SPYM,State Street SPDR Portfolio S&P 500 ETF,Large cap
-IWF,iShares Russell 1000 Growth Fund,Large cap
-VWO,Vanguard FTSE Emerging Markets ETF,Total market
-IJH,iShares Core S&P Mid-Cap ETF,Mid cap
-VIG,Vanguard Div Appreciation ETF,Total market
-IJR,iShares Core S&P Small-Cap ETF,Small cap
-XLK,State Street Technology Select Sector SPDR ETF,Information technology
-SCHD,Schwab US Dividend Equity ETF,High dividend yield
-RSP,Invesco S&P 500 Equal Weight ETF,Large cap
-ITOT,iShares Core S&P Total U.S. Stock Market ETF,Total market
-VYM,Vanguard High Dividend Yield ETF,High dividend yield
-EFA,iShares MSCI EAFE ETF,Total market
-IWD,iShares Russell 1000 Value ETF,Large cap
-IWM,iShares Russell 2000 ETF,Small cap
-QQQM,Invesco NASDAQ 100 ETF,Large cap
-VT,Vanguard Total World Stock Index ETF,Total market
-SCHX,Schwab U.S. Large-Cap ETF,Large cap
-IVW,iShares S&P 500 Growth ETF,Large cap
-VEU,Vanguard FTSE All World Ex US ETF,Total market
-SCHF,Schwab International Equity ETF,Total market
-IXUS,iShares Core MSCI Total International Stock ETF,Total market
-SCHG,Schwab U.S. Large-Cap Growth ETF,Large cap
-IWR,iShares Russell Mid-Cap ETF,Mid cap
-XLF,State Street Financial Select Sector SPDR ETF,Financials
-QUAL,iShares MSCI USA Quality Factor ETF,Total market
-IVE,iShares S&P 500 Value ETF,Large cap
-SMH,VanEck Semiconductor ETF,Information technology
-SPYG,State Street SPDR Portfolio S&P 500 Growth ETF,Large cap
-IWB,iShares Russell 1000 ETF,Large cap
-DIA,State Street SPDR Dow Jones Industrial Average ETF Trust,Large cap
-XLE,State Street Energy Select Sector SPDR ETF,Energy
-DFAC,Dimensional U.S. Core Equity 2 ETF,Total market
-XLV,State Street Health Care Select Sector SPDR ETF,Health care
-VONG,Vanguard Russell 1000 Growth ETF,Large cap
-DGRO,iShares Core Dividend Growth ETF,Total market
-SCHB,Schwab U.S. Broad Market ETF,Total market
-SPDW,State Street SPDR Portfolio Developed World ex-US ETF,Total market
-VNQ,Vanguard Real Estate ETF,Real estate
-SPYV,State Street SPDR Portfolio S&P 500 Value ETF,Large cap
-DYNF,iShares U.S. Equity Factor Rotation Active ETF,Total market
-CGDV,Capital Group Dividend Value ETF,Total market
-GDX,VanEck Gold Miners ETF,Materials
-VGK,Vanguard FTSE European ETF,Total market
-EFV,iShares MSCI EAFE Value ETF,Total market
-ACWI,iShares MSCI ACWI ETF,Total market
-XLI,State Street Industrial Select Sector SPDR ETF,Industrials
-IDEV,iShares Core MSCI International Developed Markets ETF,Total market
-EEM,iShares MSCI Emerging Index Fund,Total market
-XLU,State Street Utilities Select Sector SPDR ETF,Utilities
-MDY,State Street SPDR S&P MIDCAP 400 ETF Trust,Mid cap
-IUSV,iShares Core S&P U.S. Value ETF,Total market
-XLC,State Street Communication Services Select Sector SPDR ETF,Communication services
-FNDX,Schwab Fundamental U.S. Large Company ETF,Large cap
-AVUV,Avantis U.S. Small Cap Value ETF,Small cap
-USMV,iShares MSCI USA Min Vol Factor ETF,Total market
-FNDF,Schwab Fundamental International Equity ETF,Large cap
-SOXX,iShares PHLX SOX Semiconductor Sector Index Fund,Information technology
-XLY,State Street Consumer Discretionary Select Sector SPDR ETF,Consumer discretionary
-AVEM,Avantis Emerging Markets Equity ETF,Total market
-RDVY,First Trust Rising Dividend Achievers ETF,Large cap
-SCHA,Schwab U.S. Small-Cap ETF,Small cap
-CGGR,Capital Group Growth ETF,Total market
-EWJ,iShares MSCI Japan Index Fund,Total market
-EMXC,iShares MSCI Emerging Markets ex China ETF,Total market
-IWP,iShares Russell Midcap Growth ETF,Mid cap
-DFIV,Dimensional International Value ETF,Total market
-VYMI,Vanguard International High Dividend Yield ETF,High dividend yield
-COWZ,Pacer US Cash Cows 100 ETF,Large cap
-IYW,iShares U.S. Technology ETF,Information technology
-DFUS,Dimensional U.S. Equity Market ETF,Total market
-OEF,iShares S&P 100 Fund,Large cap
-VONV,Vanguard Russell 1000 Value ETF,Large cap
-EWY,iShares MSCI South Korea ETF,Total market
-SPHQ,Invesco S&P 500 Quality ETF,Large cap
-SPEM,State Street SPDR Portfolio Emerging Markets ETF,Total market
-SPMD,State Street SPDR Portfolio S&P 400 Mid Cap ETF,Mid cap
-DGRW,WisdomTree U.S. Quality Dividend Growth Fund,Total market
-BBJP,JPMorgan BetaBuilders Japan ETF,Total market
-SCHV,Schwab U.S. Large-Cap Value ETF,Large cap
-DFAI,Dimensional International Core Equity Market ETF,Total market
-AVDE,Avantis International Equity ETF,Total market
-XLP,State Street Consumer Staples Select Sector SPDR ETF,Consumer staples
-VTWO,Vanguard Russell 2000 ETF,Small cap
-SPSM,State Street SPDR Portfolio S&P 600 Small Cap ETF,Small cap
-EFG,iShares MSCI EAFE Growth ETF,Total market
-SCZ,iShares MSCI EAFE Small-Cap ETF,Small cap
-ITA,iShares U.S. Aerospace & Defense ETF,Industrials
-SPMO,Invesco S&P 500 Momentum ETF,Large cap
-SCHM,Schwab U.S. Mid Cap ETF,Mid cap
-DFIC,Dimensional International Core Equity 2 ETF,Total market
-AMLP,Alerian MLP ETF,Energy
-IQLT,iShares MSCI Intl Quality Factor ETF,Total market
-SPTM,State Street SPDR Portfolio S&P 1500 Composite Stock Market ETF,Total market
-PAVE,Global X U.S. Infrastructure Development ETF,Theme
-MOAT,VanEck Morningstar Wide Moat ETF,Total market
-SCHE,Schwab Emerging Markets Equity ETF,Total market
-IGV,iShares Expanded Tech-Software Sector ETF,Information technology
-VDE,Vanguard Energy ETF,Energy
-DUHP,Dimensional US High Profitability ETF,Large cap
-VLUE,iShares MSCI USA Value Factor ETF,Total market
-SDVY,First Trust SMID Cap Rising Dividend Achievers ETF,Extended market
-ACWX,iShares MSCI ACWI ex U.S. ETF,Total market
-BAI,iShares A.I. Innovation and Tech Active ETF,Theme
-CIBR,First Trust NASDAQ Cybersecurity ETF,Theme
-EWZ,iShares MSCI Brazil ETF,Total market
-XLG,Invesco S&P 500 Top 50 ETF,Large cap
-SCHH,Schwab U.S. REIT ETF,Real estate
-GDXJ,VanEck Junior Gold Miners ETF,Materials
-CGUS,Capital Group Core Equity ETF,Total market
-EZU,iShares MSCI Eurozone ETF,Total market
-CGGO,Capital Group Global Growth Equity ETF,Total market
-PVAL,Putnam Focused Large Cap Value ETF,Large cap
-FNDE,Schwab Fundamental Emerging Markets Equity ETF,Large cap
-FDVV,Fidelity High Dividend ETF,High dividend yield
-SHLD,Global X Defense Tech ETF,Industrials
-IEUR,iShares Core MSCI Europe ETF,Total market
-FENI,Fidelity Enhanced International ETF,Total market
-XBI,State Street SPDR S&P Biotech ETF,Health care
-FVD,First Trust VL Dividend,High dividend yield
-IDV,iShares International Select Dividend ETF,High dividend yield
-IBB,iShares Biotechnology ETF,Health care
-DFAE,Dimensional Emerging Core Equity Market ETF,Total market
-VPL,Vanguard FTSE Pacific ETF,Total market
-THRO,iShares U.S. Thematic Rotation Active ETF,Theme
-XLRE,State Street Real Estate Select Sector SPDR ETF,Real estate
-AIQ,Global X Artificial Intelligence & Technology ETF,Theme
-FDL,First Trust Morningstar ETF,High dividend yield
-SPLV,Invesco S&P 500 Low Volatility ETF,Large cap
-EWT,iShares MSCI Taiwan ETF,Total market
-SPYD,State Street SPDR Portfolio S&P 500 High Dividend ETF,High dividend yield
-DFSV,Dimensional US Small Cap Value ETF,Small cap
-JQUA,JPMorgan U.S. Quality Factor ETF,Large cap
-COPX,Global X Copper Miners ETF,Materials
-XLB,State Street Materials Select Sector SPDR ETF,Materials
-URA,Global X Uranium ETF,Theme
-MCHI,iShares MSCI China ETF,Total market
-INDA,iShares MSCI India ETF,Total market
-FELC,Fidelity Enhanced Large Cap Core ETF,Large cap
-VFLO,VictoryShares Free Cash Flow ETF,Large cap
-KWEB,KraneShares CSI China Internet ETF,Theme
-FMDE,Fidelity Enhanced Mid Cap ETF,Mid cap
-ESGE,iShares ESG Aware MSCI EM ETF,Total market
-ARKK,ARK Innovation ETF,Theme
-FXI,iShares China Large-Cap ETF,Large cap
-DFLV,Dimensional US Large Cap Value ETF,Large cap
-SIL,Global X Silver Miners ETF,Materials
-CGXU,Capital Group International Focus Equity ETF,Total market
-KBWB,Invesco KBW Bank ETF,Financials
-EWC,iShares MSCI Canada Index Fund,Total market
-SCHK,Schwab 1000 Index ETF,Large cap
-REET,iShares Global REIT ETF,Real estate
-XME,State Street SPDR S&P Metals & Mining ETF,Materials
-ILF,iShares Latin America 40 ETF,Large cap
-BLCR,iShares Large Cap Core Active ETF,Large cap
-FEZ,State Street SPDR EURO STOXX 50 ETF,Large cap
-SILJ,Amplify Junior Silver Miners ETF,Materials
-IYR,iShares U.S. Real Estate ETF,Real estate
-GRNY,Fundstrat Granny Shots US Large Cap ETF,Large cap
-IVLU,iShares MSCI Intl Value Factor ETF,Total market
-KRE,State Street SPDR S&P Regional Banking ETF,Financials
-MAGS,Roundhill Magnificent Seven ETF,Theme
-XOP,State Street SPDR S&P Oil & Gas Exploration & Production ETF,Energy
-IDEF,iShares Defense Industrials Active ETF,Industrials
-EUFN,iShares MSCI Europe Financials ETF,Financials
-EWU,iShares MSCI United Kingdom ETF,Total market
-AAXJ,iShares MSCI All Country Asia ex Japan ETF,Total market
-SPHD,Invesco S&P 500 High Dividend Low Volatility ETF,Large cap
-CALF,Pacer US Small Cap Cash Cows ETF,Small cap
-IHI,iShares U.S. Medical Devices ETF,Health care
-CORO,iShares International Country Rotation Active ETF,Total market
-FLJP,Franklin FTSE Japan ETF,Total market
-REMX,VanEck Rare Earth and Strategic Metals ETF,Materials
-FLIN,Franklin FTSE India ETF,Total market
-CQQQ,Invesco China Technology ETF,Information technology
-ITB,iShares U.S. Home Construction ETF,Theme
-EPI,WisdomTree India Earnings Fund,Total market
-URNM,Sprott Uranium Miners ETF,Theme
-ICLN,iShares Global Clean Energy ETF,Theme
-EWW,iShares MSCI Mexico ETF,Total market
-CGMM,Capital Group U.S. Small and Mid Cap ETF,Extended market
-FENY,Fidelity MSCI Energy Index ETF,Energy
-IYE,iShares U.S. Energy ETF,Energy
-DFAR,Dimensional US Real Estate ETF,Real estate
-KLMN,Invesco MSCI North America Climate ETF,Total market
-BIZD,VanEck BDC Income ETF,Financials
-TAN,Invesco Solar ETF,Theme
-XHB,State Street SPDR S&P Homebuilders ETF,Theme
-ASHR,Xtrackers Harvest CSI 300 China A-Shares ETF,Total market
-EWG,iShares MSCI Germany Index Fund,Total market
-EWA,iShares MSCI Australia Index Fund,Total market
-KBE,State Street SPDR S&P Bank ETF,Financials
-FXN,First Trust Energy AlphaDEX Fund,Energy
-SOXQ,Invesco PHLX Semiconductor ETF,Information technology
-ARKG,ARK Genomic Revolution ETF,Theme
-ECH,iShares MSCI Chile ETF,Total market
-EWH,iShares MSCI Hong Kong Index Fund,Total market
-FCG,First Trust Natural Gas ETF,Energy
-IYZ,iShares U.S. Telecommunications ETF,Theme
-JETS,U.S. Global Jets ETF,Industrials
-MSOS,AdvisorShares Pure US Cannabis ETF,Theme
-KSA,iShares MSCI Saudi Arabia ETF,Total market
-KIE,State Street SPDR S&P Insurance ETF,Financials
-XRT,State Street SPDR S&P Retail ETF,Consumer discretionary
-MORT,VanEck Mortgage REIT Income ETF,Financials
-FTXO,First Trust Nasdaq Bank ETF,Financials
-WCLD,WisdomTree Cloud Computing Fund,Information technology
-GXC,State Street SPDR S&P China ETF,Total market
-FFTY,Innovator IBD 50 ETF,Theme
-RSPT,Invesco S&P 500 Equal Weight Technology ETF,Information technology
-PBJ,Invesco Food & Beverage ETF,Consumer staples
-RSPS,Invesco S&P 500 Equal Weight Consumer Staples ETF,Consumer staples
-IBUY,Amplify Online Retail ETF,Theme
-RSPR,Invesco S&P 500 Equal Weight Real Estate ETF,Real estate
-DRIV,Global X Autonomous & Electric Vehicles ETF,Theme
-PEJ,Invesco Leisure and Entertainment ETF,Consumer discretionary
-XTL,State Street SPDR S&P Telecom ETF,Communication services
-XSW,State Street SPDR S&P Software & Services ETF,Information technology
-QQQE,Direxion NASDAQ-100 Equal Weighted Index ETF,Large cap
-IPAY,Amplify Digital Payments ETF,Theme
-USO,United States Oil Fund LP,Energy
-RSPD,Invesco S&P 500 Equal Weight Consumer Discretionary ETF,Consumer discretionary
-KCE,State Street SPDR S&P Capital Markets ETF,Financials
-ROBO,ROBO Global Robotics and Automation Index ETF,Theme
-GNR,State Street SPDR S&P Global Natural Resources ETF,Materials
-BOAT,SonicShares Global Shipping ETF,Industrials
-BUZZ,VanEck Social Sentiment ETF,Theme
-XHS,State Street SPDR S&P Health Care Services ETF,Health care
-RSPH,Invesco S&P 500 Equal Weight Health Care ETF,Health care
-MOO,VanEck Agribusiness ETF,Materials
-RSPF,Invesco S&P 500 Equal Weight Financials ETF,Financials
-RSPN,Invesco S&P 500 Equal Weight Industrials ETF,Industrials
-GBTC,Grayscale Bitcoin Trust ETF,Theme
-XTN,State Street SPDR S&P Transportation ETF,Industrials
-RSPG,Invesco S&P 500 Equal Weight Energy ETF,Energy
-BLOK,Amplify Blockchain Technology ETF,Theme
-RSPC,Invesco S&P 500 Equal Weight Communication Services ETF,Communication services
-RSPU,Invesco S&P 500 Equal Weight Utilities ETF,Utilities
-XSD,State Street SPDR S&P Semiconductor ETF,Information technology
-RSPM,Invesco S&P 500 Equal Weight Materials ETF,Materials
-XHE,State Street SPDR S&P Health Care Equipment ETF,Health care
-XPH,State Street SPDR S&P Pharmaceuticals ETF,Health care
-XAR,State Street SPDR S&P Aerospace & Defense ETF,Industrials
-XES,State Street SPDR S&P Oil & Gas Equipment & Services ETF,Energy
-PBW,Invesco WilderHill Clean Energy ETF,Theme
-SLX,VanEck Steel ETF,Materials
+symbol,name,asset_class,theme,included,exclude_reason,canonical_for,aum,avg_volume_30d,inception_date,expense_ratio,last_refreshed,is_leveraged,is_single_stock,override
+VOO,Vanguard S&P 500 ETF,us_equity,US Broad,False,broad index,SPY,1533190471680,5124052971.5842285,2000-11-13,0.03,2026-05-06,False,False,False
+IVV,iShares Core S&P 500 ETF,us_equity,US Broad,False,broad index,SPY,797465706496,4677702033.341471,2000-05-15,0.03,2026-05-06,False,False,False
+SPY,SPDR S&P 500 ETF TRUST,us_equity,US Broad,False,broad index,,735060819968,46509328791.23045,1993-01-22,0.0945,2026-05-06,False,False,False
+VTI,Vanguard Total Stock Market ETF,us_equity,US Broad,False,broad index,,2055528906752,1413869089.6774445,2000-11-13,0.03,2026-05-06,False,False,False
+QQQ,"Invesco QQQ Trust, Series 1",us_equity,US Broad,False,broad index,,440257380352,33507187304.96717,1999-03-10,0.18,2026-05-06,False,False,False
+VEA,Vanguard FTSE Developed Markets ETF,intl_dev,Int'l Developed,False,redundant,IEFA,298525392896,943249425.1234642,2001-01-04,0.03,2026-05-06,False,False,False
+VUG,Vanguard Growth ETF,us_equity,US Growth,True,,,346366181376,740943432.2989196,2000-11-13,0.03,2026-05-06,False,False,False
+IEFA,iShares Core MSCI EAFE ETF,intl_dev,Int'l Developed,True,,,180740521984,1092087990.498786,2012-10-18,0.07,2026-05-06,False,False,False
+VTV,Vanguard Value ETF,us_equity,US Value / Div,True,,,234870636544,696130185.7556325,2000-11-13,0.03,2026-05-06,False,False,False
+IEMG,iShares Core MSCI Emerging Markets ETF,em,Emerging Markets,True,,,151167582208,966853741.2968118,2012-10-18,0.09,2026-05-06,False,False,False
+VXUS,Vanguard Total International Stock ETF,intl_dev,Int'l Developed,False,broad index,,594348146688,547959512.6578522,1996-04-29,0.05,2026-05-06,False,False,False
+SPYM,State Street SPDR Portfolio S&P 500 ETF,us_equity,US Broad,False,broad index,SPY,137580789760,1137912755.1986442,2005-11-08,,2026-05-06,False,False,False
+IWF,iShares Russell 1000 Growth Fund,us_equity,US Growth,True,,,124668968960,913023873.8736632,2000-05-22,0.18,2026-05-06,False,False,False
+VWO,Vanguard FTSE Emerging Markets ETF,em,Emerging Markets,False,redundant,IEMG,156514156544,516258855.4943569,2006-06-23,0.06,2026-05-06,False,False,False
+IJH,iShares Core S&P Mid-Cap ETF,us_equity,Small / Mid Cap,True,,,115693895680,723829253.1468425,2000-05-22,0.05,2026-05-06,False,False,False
+VIG,Vanguard Div Appreciation ETF,us_equity,US Value / Div,True,,,123581562880,256931773.11882937,2013-12-19,0.04,2026-05-06,False,False,False
+IJR,iShares Core S&P Small-Cap ETF,us_equity,Small / Mid Cap,True,,,102561284096,670239125.09906,2000-05-22,0.06,2026-05-06,False,False,False
+XLK,State Street Technology Select Sector SPDR ETF,sector,Tech,True,,,103332429824,1962944106.1437223,1998-12-16,0.08,2026-05-06,False,False,False
+SCHD,Schwab US Dividend Equity ETF,us_equity,US Value / Div,True,,,91124563968,677198128.2646871,2011-10-20,0.06,2026-05-06,False,False,False
+RSP,Invesco S&P 500 Equal Weight ETF,us_equity,US Broad,False,broad index,,86401458176,2047458599.965338,2003-04-24,0.2,2026-05-06,False,False,False
+ITOT,iShares Core S&P Total U.S. Stock Market ETF,us_equity,US Broad,False,broad index,VTI,88942600192,512826871.88518274,2004-01-20,0.03,2026-05-06,False,False,False
+VYM,Vanguard High Dividend Yield ETF,us_equity,US Value / Div,True,,,93599211520,186851355.11380413,2019-02-07,0.04,2026-05-06,False,False,False
+EFA,iShares MSCI EAFE ETF,intl_dev,Int'l Developed,False,redundant,IEFA,75608719360,1721848621.1689634,2001-08-14,0.32,2026-05-06,False,False,False
+IWD,iShares Russell 1000 Value ETF,us_equity,US Value / Div,True,,,74264879104,634729860.8938267,2000-05-22,0.18,2026-05-06,False,False,False
+IWM,iShares Russell 2000 ETF,us_equity,Small / Mid Cap,True,,,76877807616,9248602152.832548,2000-05-22,0.19,2026-05-06,False,False,False
+QQQM,Invesco NASDAQ 100 ETF,us_equity,US Growth,False,broad index,QQQ,82916261888,1011314256.3333334,2020-10-13,0.15,2026-05-06,False,False,False
+VT,Vanguard Total World Stock Index ETF,us_equity,US Broad,False,broad index,,88264900608,540171927.3509761,2008-10-09,0.06,2026-05-06,False,False,False
+SCHX,Schwab U.S. Large-Cap ETF,us_equity,US Broad,False,broad index,IWB,68245004288,478805355.5184123,2009-11-03,0.03,2026-05-06,False,False,False
+IVW,iShares S&P 500 Growth ETF,us_equity,US Growth,True,,,70348242944,415431654.1224076,2000-05-22,0.18,2026-05-06,False,False,False
+VEU,Vanguard FTSE All World Ex US ETF,intl_dev,Int'l Developed,False,broad index,VXUS,88672862208,239300001.3432223,2007-04-30,0.04,2026-05-06,False,False,False
+SCHF,Schwab International Equity ETF,intl_dev,Int'l Developed,False,redundant,IEFA,62958792704,285984226.0319727,2009-11-03,0.03,2026-05-06,False,False,False
+IXUS,iShares Core MSCI Total International Stock ETF,intl_dev,Int'l Developed,False,broad index,VXUS,56230166528,226058295.83857423,2012-10-18,0.07,2026-05-06,False,False,False
+SCHG,Schwab U.S. Large-Cap Growth ETF,us_equity,US Growth,False,redundant,IWF,55632179200,499164176.53170925,2009-12-11,0.04,2026-05-06,False,False,False
+IWR,iShares Russell Mid-Cap ETF,us_equity,Small / Mid Cap,True,,,52614262784,281814076.2592031,2001-07-17,0.18,2026-05-06,False,False,False
+XLF,State Street Financial Select Sector SPDR ETF,sector,Financials,True,,,51460583424,1982343496.773657,1998-12-16,0.08,2026-05-06,False,False,False
+QUAL,iShares MSCI USA Quality Factor ETF,us_equity,Smart Beta,True,,,50110087168,287256191.99705,2013-07-16,0.15,2026-05-06,False,False,False
+IVE,iShares S&P 500 Value ETF,us_equity,US Value / Div,True,,,49368715264,167266879.9306183,2000-05-22,0.18,2026-05-06,False,False,False
+SMH,VanEck Semiconductor ETF,sector,Tech,True,,,58790612992,4823398281.814697,2011-12-20,0.35,2026-05-06,False,False,False
+SPYG,State Street SPDR Portfolio S&P 500 Growth ETF,us_equity,US Growth,False,redundant,IVW,49528500224,432894536.2118444,2000-09-25,0.04,2026-05-06,False,False,False
+IWB,iShares Russell 1000 ETF,us_equity,US Broad,False,broad index,,46211141632,555673440.0005981,2000-05-15,0.15,2026-05-06,False,False,False
+DIA,State Street SPDR Dow Jones Industrial Average ETF Trust,us_equity,US Broad,False,broad index,,42719600640,2442466618.9829884,1998-01-13,0.16,2026-05-06,False,False,False
+XLE,State Street Energy Select Sector SPDR ETF,sector,Energy,True,,,41394286592,2756942642.794638,1998-12-16,0.08,2026-05-06,False,False,False
+DFAC,Dimensional U.S. Core Equity 2 ETF,us_equity,US Broad,True,,,44485996544,109028489.6966629,2007-10-04,0.17,2026-05-06,False,False,False
+XLV,State Street Health Care Select Sector SPDR ETF,sector,Defensives,True,,,37880406016,1426612866.5534449,1998-12-16,0.08,2026-05-06,False,False,False
+VONG,Vanguard Russell 1000 Growth ETF,us_equity,US Growth,False,redundant,IWF,49887506432,251108856.25648704,2010-09-20,0.06,2026-05-06,False,False,False
+DGRO,iShares Core Dividend Growth ETF,us_equity,US Growth,True,,,39649005568,137082143.76576692,2014-06-10,0.08,2026-05-06,False,False,False
+SCHB,Schwab U.S. Broad Market ETF,us_equity,US Broad,False,broad index,VTI,40993062912,275309735.69885504,2009-11-03,0.03,2026-05-06,False,False,False
+SPDW,State Street SPDR Portfolio Developed World ex-US ETF,intl_dev,Int'l Developed,False,redundant,IEFA,38948491264,225984139.5704609,2007-04-20,0.03,2026-05-06,False,False,False
+VNQ,Vanguard Real Estate ETF,sector,Real Estate,True,,,67446345728,322618890.775,2003-12-02,0.13,2026-05-06,False,False,False
+SPYV,State Street SPDR Portfolio S&P 500 Value ETF,us_equity,US Value / Div,False,redundant,IVE,33657516032,178932234.11345482,2000-09-25,0.04,2026-05-06,False,False,False
+DYNF,iShares U.S. Equity Factor Rotation Active ETF,us_equity,Smart Beta,True,,,33991575552,196816114.52325287,2019-03-19,0.26,2026-05-06,False,False,False
+CGDV,Capital Group Dividend Value ETF,us_equity,US Value / Div,True,,,33009117184,184294597.04045564,2022-02-22,0.33,2026-05-06,False,False,False
+GDX,VanEck Gold Miners ETF,sector,Materials,True,,,27257202688,1964656269.542222,2006-05-16,0.51,2026-05-06,False,False,False
+VGK,Vanguard FTSE European ETF,intl_dev,Int'l Developed,True,,,37431128064,350245576.712616,2001-08-13,0.06,2026-05-06,False,False,False
+EFV,iShares MSCI EAFE Value ETF,intl_dev,Int'l Developed,True,,,29974192128,208653824.2958333,2005-08-01,0.31,2026-05-06,False,False,False
+ACWI,iShares MSCI ACWI ETF,intl_dev,Int'l Developed,False,broad index,,31301181440,653025997.0179566,2008-03-26,0.32,2026-05-06,False,False,False
+XLI,State Street Industrial Select Sector SPDR ETF,sector,Industrials,True,,,30091372544,1788372987.2038908,1998-12-16,0.08,2026-05-06,False,False,False
+IDEV,iShares Core MSCI International Developed Markets ETF,intl_dev,Int'l Developed,False,redundant,IEFA,29414438912,126195714.97623214,2017-03-21,0.04,2026-05-06,False,False,False
+EEM,iShares MSCI Emerging Index Fund,em,Emerging Markets,False,redundant,IEMG,28104833024,2044155678.4183493,2003-04-07,0.72,2026-05-06,False,False,False
+XLU,State Street Utilities Select Sector SPDR ETF,sector,Defensives,True,,,24051787776,950042013.471772,1998-12-16,0.08,2026-05-06,False,False,False
+MDY,State Street SPDR S&P MIDCAP 400 ETF Trust,us_equity,Small / Mid Cap,False,redundant,IJH,26037147648,505239125.0888875,1995-05-04,0.23,2026-05-06,False,False,False
+IUSV,iShares Core S&P U.S. Value ETF,us_equity,US Value / Div,False,redundant,IVE,25643976704,99650559.68902588,2000-07-24,0.04,2026-05-06,False,False,False
+XLC,State Street Communication Services Select Sector SPDR ETF,sector,Tech,True,,,25642762240,629235977.42011,2018-06-18,0.08,2026-05-06,False,False,False
+FNDX,Schwab Fundamental U.S. Large Company ETF,us_equity,US Broad,True,,,25911465984,145717720.09746283,2013-08-15,0.25,2026-05-06,False,False,False
+AVUV,Avantis U.S. Small Cap Value ETF,us_equity,Small / Mid Cap,True,,,26164295680,138948690.0941925,2019-09-24,0.25,2026-05-06,False,False,False
+USMV,iShares MSCI USA Min Vol Factor ETF,us_equity,Smart Beta,True,,,22863181824,212866815.690153,2011-10-18,0.15,2026-05-06,False,False,False
+FNDF,Schwab Fundamental International Equity ETF,intl_dev,Int'l Developed,True,,,23105589248,78313190.29467824,2013-08-15,0.25,2026-05-06,False,False,False
+SOXX,iShares PHLX SOX Semiconductor Sector Index Fund,sector,Tech,False,redundant,SMH,29566459904,3505933458.9209776,2001-07-10,0.34,2026-05-06,False,False,False
+XLY,State Street Consumer Discretionary Select Sector SPDR ETF,sector,Consumer Cyclical,True,,,23127506944,1047255410.4921927,1998-12-16,0.08,2026-05-06,False,False,False
+AVEM,Avantis Emerging Markets Equity ETF,em,Emerging Markets,True,,,23405760512,186159537.267334,2019-09-17,0.33,2026-05-06,False,False,False
+RDVY,First Trust Rising Dividend Achievers ETF,us_equity,US Value / Div,True,,,21954906112,102409728.57300466,2014-01-06,0.47,2026-05-06,False,False,False
+SCHA,Schwab U.S. Small-Cap ETF,us_equity,Small / Mid Cap,False,redundant,IWM,22110545920,72798657.14515573,2009-11-03,0.04,2026-05-06,False,False,False
+CGGR,Capital Group Growth ETF,us_equity,US Growth,True,,,22248624128,135937898.12505862,2022-02-22,0.39,2026-05-06,False,False,False
+EWJ,iShares MSCI Japan Index Fund,intl_dev,Int'l Developed,True,,,20975747072,691418003.1780945,1996-03-12,0.49,2026-05-06,False,False,False
+EMXC,iShares MSCI Emerging Markets ex China ETF,em,Emerging Markets,True,,,22066339840,339251913.4238965,2017-07-18,0.25,2026-05-06,False,False,False
+IWP,iShares Russell Midcap Growth ETF,us_equity,Small / Mid Cap,True,,,19587223552,136487624.07404938,2001-07-17,0.23,2026-05-06,False,False,False
+DFIV,Dimensional International Value ETF,intl_dev,Int'l Developed,True,,,19318982656,69285098.49553834,1999-04-16,0.27,2026-05-06,False,False,False
+VYMI,Vanguard International High Dividend Yield ETF,intl_dev,Int'l Developed,True,,,19947499520,106670990.41717224,2016-03-02,0.07,2026-05-06,False,False,False
+COWZ,Pacer US Cash Cows 100 ETF,us_equity,US Broad,True,,,18178859008,84835935.03062439,2016-12-16,0.49,2026-05-06,False,False,False
+IYW,iShares U.S. Technology ETF,sector,Tech,False,redundant,XLK,21450866688,331283013.20422053,2000-05-15,0.38,2026-05-06,False,False,False
+DFUS,Dimensional U.S. Equity Market ETF,us_equity,US Broad,False,broad index,,19860314112,72245169.37512359,2001-09-25,0.09,2026-05-06,False,False,False
+OEF,iShares S&P 100 Fund,us_equity,US Broad,False,broad index,SPY,19582892032,259254783.93798828,2000-10-23,0.2,2026-05-06,False,False,False
+VONV,Vanguard Russell 1000 Value ETF,us_equity,US Value / Div,False,redundant,IWD,20270237696,127160615.67241415,2010-09-20,0.06,2026-05-06,False,False,False
+EWY,iShares MSCI South Korea ETF,em,Emerging Markets,True,,,21046964224,3218588504.868637,2000-05-09,0.59,2026-05-06,False,False,False
+SPHQ,Invesco S&P 500 Quality ETF,us_equity,Smart Beta,True,,,17255227392,118565118.71164958,2005-12-06,0.15,2026-05-06,False,False,False
+SPEM,State Street SPDR Portfolio Emerging Markets ETF,em,Emerging Markets,False,redundant,IEMG,17273393152,130838879.87881777,2007-03-19,0.07,2026-05-06,False,False,False
+SPMD,State Street SPDR Portfolio S&P 400 Mid Cap ETF,us_equity,Small / Mid Cap,False,redundant,IJH,17020846080,152065281.23657227,2005-11-08,0.03,2026-05-06,False,False,False
+DGRW,WisdomTree U.S. Quality Dividend Growth Fund,us_equity,Smart Beta,True,,,16440072192,81851597.13704681,2013-05-22,0.28,2026-05-06,False,False,False
+BBJP,JPMorgan BetaBuilders Japan ETF,intl_dev,Int'l Developed,False,redundant,EWJ,16591498240,156846256.0464808,2018-06-15,0.19,2026-05-06,False,False,False
+SCHV,Schwab U.S. Large-Cap Value ETF,us_equity,US Value / Div,False,redundant,IWD,15173207040,156602598.44293848,2009-12-11,0.04,2026-05-06,False,False,False
+DFAI,Dimensional International Core Equity Market ETF,intl_dev,Int'l Developed,True,,,15865814016,60373160.94377899,2020-11-17,0.18,2026-05-06,False,False,False
+AVDE,Avantis International Equity ETF,intl_dev,Int'l Developed,True,,,15805586432,94794724.3574707,2019-09-24,0.23,2026-05-06,False,False,False
+XLP,State Street Consumer Staples Select Sector SPDR ETF,sector,Defensives,True,,,14545357824,1138844115.0,1998-12-16,0.08,2026-05-06,False,False,False
+VTWO,Vanguard Russell 2000 ETF,us_equity,Small / Mid Cap,False,redundant,IWM,16504212480,331710359.9853271,2010-09-20,0.06,2026-05-06,False,False,False
+SPSM,State Street SPDR Portfolio S&P 600 Small Cap ETF,us_equity,Small / Mid Cap,False,redundant,IJR,15364910080,103756306.46601295,2013-07-08,0.03,2026-05-06,False,False,False
+EFG,iShares MSCI EAFE Growth ETF,intl_dev,Int'l Developed,True,,,15176155136,120066381.50714722,2005-08-01,0.34,2026-05-06,False,False,False
+SCZ,iShares MSCI EAFE Small-Cap ETF,intl_dev,Int'l Developed,True,,,14390466560,164959492.272847,2007-12-10,0.4,2026-05-06,False,False,False
+ITA,iShares U.S. Aerospace & Defense ETF,sector,Industrials,True,,,13564854272,216548451.4030792,2006-05-01,0.38,2026-05-06,False,False,False
+SPMO,Invesco S&P 500 Momentum ETF,us_equity,Smart Beta,True,,,15975757824,247120901.1775106,2015-10-09,0.13,2026-05-06,False,False,False
+SCHM,Schwab U.S. Mid Cap ETF,us_equity,Small / Mid Cap,False,redundant,IWR,14262382592,43264202.74040451,2011-01-13,0.04,2026-05-06,False,False,False
+DFIC,Dimensional International Core Equity 2 ETF,intl_dev,Int'l Developed,True,,,13646669824,42295781.04105822,2022-03-23,0.22,2026-05-06,False,False,False
+AMLP,Alerian MLP ETF,sector,Energy,True,,,12612549632,85158597.14589475,2010-08-25,1.01,2026-05-06,False,False,False
+IQLT,iShares MSCI Intl Quality Factor ETF,intl_dev,Int'l Developed,True,,,12887524352,87049801.14306335,2015-01-13,0.3,2026-05-06,False,False,False
+SPTM,State Street SPDR Portfolio S&P 1500 Composite Stock Market ETF,us_equity,US Broad,False,broad index,VTI,13044114432,74249693.59324545,2000-10-04,0.03,2026-05-06,False,False,False
+PAVE,Global X U.S. Infrastructure Development ETF,thematic_equity,Industrials,True,,,13361818624,94983793.80163358,2017-03-06,0.47,2026-05-06,False,False,False
+MOAT,VanEck Morningstar Wide Moat ETF,us_equity,Smart Beta,True,,,11769107456,109389050.13526765,2012-04-24,0.46,2026-05-06,False,False,False
+SCHE,Schwab Emerging Markets Equity ETF,em,Emerging Markets,False,redundant,IEMG,12302515200,81554233.40243721,2010-01-14,0.07,2026-05-06,False,False,False
+IGV,iShares Expanded Tech-Software Sector ETF,sector,Tech,True,,,12107472896,2148675207.852793,2001-07-10,0.39,2026-05-06,False,False,False
+VDE,Vanguard Energy ETF,sector,Energy,True,,,12770091008,175603856.24945578,2004-10-07,0.09,2026-05-06,False,False,False
+DUHP,Dimensional US High Profitability ETF,us_equity,Smart Beta,True,,,11348431872,47547692.50270539,2022-02-23,0.2,2026-05-06,False,False,False
+VLUE,iShares MSCI USA Value Factor ETF,us_equity,Smart Beta,True,,,12047676416,176831840.74075013,2013-04-16,0.15,2026-05-06,False,False,False
+SDVY,First Trust SMID Cap Rising Dividend Achievers ETF,us_equity,Small / Mid Cap,True,,,10983272448,69158935.47889201,2017-11-01,0.58,2026-05-06,False,False,False
+ACWX,iShares MSCI ACWI ex U.S. ETF,intl_dev,Int'l Developed,False,broad index,,11128708096,208271946.29184112,2008-03-26,0.32,2026-05-06,False,False,False
+BAI,iShares A.I. Innovation and Tech Active ETF,thematic_equity,Tech,False,short history,,13352390656,148970617.02812117,2024-10-21,0.55,2026-05-06,False,False,False
+CIBR,First Trust NASDAQ Cybersecurity ETF,thematic_equity,Tech,True,,,10193096704,108467184.49281058,2015-07-06,0.58,2026-05-06,False,False,False
+EWZ,iShares MSCI Brazil ETF,em,Emerging Markets,True,,,11568207872,1078584698.0189836,2000-07-10,0.59,2026-05-06,False,False,False
+XLG,Invesco S&P 500 Top 50 ETF,us_equity,US Broad,True,,,10674111488,139015388.3812515,2005-05-04,0.2,2026-05-06,False,False,False
+SCHH,Schwab U.S. REIT ETF,sector,Real Estate,False,redundant,VNQ,9932141568,180188787.3769245,2011-01-13,0.07,2026-05-06,False,False,False
+GDXJ,VanEck Junior Gold Miners ETF,sector,Materials,True,,,8720046080,551822230.6735382,2009-11-10,0.52,2026-05-06,False,False,False
+CGUS,Capital Group Core Equity ETF,us_equity,US Broad,True,,,10250177536,52134119.03839569,2022-02-22,0.33,2026-05-06,False,False,False
+EZU,iShares MSCI Eurozone ETF,intl_dev,Int'l Developed,True,,,9525489664,128465665.59402771,2000-07-25,0.5,2026-05-06,False,False,False
+CGGO,Capital Group Global Growth Equity ETF,intl_dev,Int'l Developed,True,,,10091258880,49915530.89522298,2022-02-22,0.47,2026-05-06,False,False,False
+PVAL,Putnam Focused Large Cap Value ETF,us_equity,US Value / Div,True,,,10071214080,73889163.44513778,2021-05-25,0.55,2026-05-06,False,False,False
+FNDE,Schwab Fundamental Emerging Markets Equity ETF,em,Emerging Markets,True,,,9355111424,41323790.21291797,2013-08-15,0.39,2026-05-06,False,False,False
+FDVV,Fidelity High Dividend ETF,us_equity,US Value / Div,True,,,9179220992,51720352.96311022,2016-09-12,0.15,2026-05-06,False,False,False
+SHLD,Global X Defense Tech ETF,sector,Industrials,True,,,8065314304,117432670.88496529,2023-09-11,0.5,2026-05-06,False,False,False
+IEUR,iShares Core MSCI Europe ETF,intl_dev,Int'l Developed,True,,,8720987136,75214236.7702179,2014-06-10,0.1,2026-05-06,False,False,False
+FENI,Fidelity Enhanced International ETF,intl_dev,Int'l Developed,True,,,9143265280,56445540.0513176,2007-12-20,0.28,2026-05-06,False,False,False
+XBI,State Street SPDR S&P Biotech ETF,sector,Defensives,True,,,8295757312,1231869507.5540507,2006-01-31,0.35,2026-05-06,False,False,False
+FVD,First Trust VL Dividend,us_equity,US Value / Div,True,,,8182530048,41508921.59205831,2003-08-19,0.62,2026-05-06,False,False,False
+IDV,iShares International Select Dividend ETF,intl_dev,Int'l Developed,True,,,8460274176,50243656.01618893,2007-06-11,0.5,2026-05-06,False,False,False
+IBB,iShares Biotechnology ETF,sector,Defensives,True,,,7946963968,238991735.74928284,2001-02-05,0.44,2026-05-06,False,False,False
+DFAE,Dimensional Emerging Core Equity Market ETF,em,Emerging Markets,True,,,8860467200,47325394.95543874,2020-12-01,0.29,2026-05-06,False,False,False
+VPL,Vanguard FTSE Pacific ETF,intl_dev,Int'l Developed,True,,,12630575104,110592573.20799102,2001-08-13,0.07,2026-05-06,False,False,False
+THRO,iShares U.S. Thematic Rotation Active ETF,thematic_equity,Thematic,True,,,8272118272,40265502.79395904,2021-12-14,0.57,2026-05-06,False,False,False
+XLRE,State Street Real Estate Select Sector SPDR ETF,sector,Real Estate,True,,,7712990720,286066897.5150353,2015-10-07,0.08,2026-05-06,False,False,False
+AIQ,Global X Artificial Intelligence & Technology ETF,thematic_equity,Tech,True,,,8611765248,101495000.20023295,2018-05-11,0.68,2026-05-06,False,False,False
+FDL,First Trust Morningstar ETF,us_equity,US Value / Div,True,,,7450067968,50996964.91640472,2006-03-09,0.43,2026-05-06,False,False,False
+SPLV,Invesco S&P 500 Low Volatility ETF,us_equity,Smart Beta,True,,,7233982464,170919683.9714218,2011-05-05,0.25,2026-05-06,False,False,False
+EWT,iShares MSCI Taiwan ETF,em,Emerging Markets,True,,,9113944064,548816146.4859878,2000-06-20,0.59,2026-05-06,False,False,False
+SPYD,State Street SPDR Portfolio S&P 500 High Dividend ETF,us_equity,US Value / Div,True,,,7394181120,57505616.37894402,2015-10-21,0.07,2026-05-06,False,False,False
+DFSV,Dimensional US Small Cap Value ETF,us_equity,Small / Mid Cap,True,,,7508829184,43200300.31593908,2022-02-23,0.3,2026-05-06,False,False,False
+JQUA,JPMorgan U.S. Quality Factor ETF,us_equity,Smart Beta,False,redundant,QUAL,7455955456,49935527.16540527,2017-11-08,0.12,2026-05-06,False,False,False
+COPX,Global X Copper Miners ETF,sector,Materials,True,,,7406607872,291857448.3263102,2010-04-19,0.65,2026-05-06,False,False,False
+XLB,State Street Materials Select Sector SPDR ETF,sector,Materials,True,,,7311751168,602367929.2001597,1998-12-16,0.08,2026-05-06,False,False,False
+URA,Global X Uranium ETF,thematic_equity,Materials,True,,,7810848256,207669063.89909056,2010-11-04,0.69,2026-05-06,False,False,False
+MCHI,iShares MSCI China ETF,em,Emerging Markets,True,,,6746261504,162178425.80858868,2011-03-29,0.59,2026-05-06,False,False,False
+INDA,iShares MSCI India ETF,em,Emerging Markets,True,,,6592828928,380445103.7801643,2012-02-02,0.61,2026-05-06,False,False,False
+FELC,Fidelity Enhanced Large Cap Core ETF,us_equity,US Broad,True,,,7036123136,45603359.245365016,2007-04-19,0.18,2026-05-06,False,False,False
+VFLO,VictoryShares Free Cash Flow ETF,us_equity,US Value / Div,True,,,6689852416,32640152.630553182,2023-06-21,0.39,2026-05-06,False,False,False
+KWEB,KraneShares CSI China Internet ETF,em,Emerging Markets,True,,,6347522048,678486702.3061882,2013-07-31,0.7,2026-05-06,False,False,False
+FMDE,Fidelity Enhanced Mid Cap ETF,us_equity,Small / Mid Cap,True,,,6524137984,31787284.72956467,2007-12-20,0.23,2026-05-06,False,False,False
+ESGE,iShares ESG Aware MSCI EM ETF,em,Emerging Markets,True,,,6612966912,55022238.96127319,2016-06-28,0.25,2026-05-06,False,False,False
+ARKK,ARK Innovation ETF,thematic_equity,Tech,True,,,6482466816,740447470.9226487,2014-10-31,0.75,2026-05-06,False,False,False
+FXI,iShares China Large-Cap ETF,em,Emerging Markets,True,,,6069856768,953671921.6172148,2004-10-05,0.73,2026-05-06,False,False,False
+DFLV,Dimensional US Large Cap Value ETF,us_equity,US Value / Div,True,,,5888893440,39147866.149912514,2022-12-06,0.21,2026-05-06,False,False,False
+SIL,Global X Silver Miners ETF,sector,Materials,True,,,5286670848,174435265.92707366,2010-04-19,0.65,2026-05-06,False,False,False
+CGXU,Capital Group International Focus Equity ETF,intl_dev,Int'l Developed,True,,,5520390144,26504696.147671506,2022-02-22,0.54,2026-05-06,False,False,False
+KBWB,Invesco KBW Bank ETF,sector,Financials,True,,,5500718592,137688846.0610733,2011-11-01,0.35,2026-05-06,False,False,False
+EWC,iShares MSCI Canada Index Fund,intl_dev,Int'l Developed,True,,,5235920384,126677374.46472064,1996-03-12,0.5,2026-05-06,False,False,False
+SCHK,Schwab 1000 Index ETF,us_equity,US Broad,False,broad index,IWB,5274782720,39470243.17224121,2017-10-11,0.03,2026-05-06,False,False,False
+REET,iShares Global REIT ETF,sector,Real Estate,True,,,4791054848,69613683.20833334,2014-07-08,0.14,2026-05-06,False,False,False
+XME,State Street SPDR S&P Metals & Mining ETF,sector,Materials,True,,,5302542336,253876372.4819504,2006-06-19,0.35,2026-05-06,False,False,False
+ILF,iShares Latin America 40 ETF,em,Emerging Markets,True,,,4971282944,122367767.30712484,2001-10-25,0.47,2026-05-06,False,False,False
+BLCR,iShares Large Cap Core Active ETF,us_equity,US Broad,True,,,5138719232,25603203.15702629,2023-10-24,0.36,2026-05-06,False,False,False
+FEZ,State Street SPDR EURO STOXX 50 ETF,intl_dev,Int'l Developed,True,,,4431338496,148827606.38638052,2002-10-15,0.29,2026-05-06,False,False,False
+SILJ,Amplify Junior Silver Miners ETF,sector,Materials,True,,,3873490432,129495369.65,2012-11-28,0.69,2026-05-06,False,False,False
+IYR,iShares U.S. Real Estate ETF,sector,Real Estate,True,,,4087330816,592961050.9252301,2000-06-12,0.38,2026-05-06,False,False,False
+GRNY,Fundstrat Granny Shots US Large Cap ETF,us_equity,US Broad,False,short history,,4373191168,51557195.6653169,2024-11-06,0.75,2026-05-06,False,False,False
+IVLU,iShares MSCI Intl Value Factor ETF,intl_dev,Int'l Developed,True,,,4000968960,45396244.73324178,2015-06-16,0.31,2026-05-06,False,False,False
+KRE,State Street SPDR S&P Regional Banking ETF,sector,Financials,True,,,4165366016,943887009.13723,2006-06-19,0.35,2026-05-06,False,False,False
+MAGS,Roundhill Magnificent Seven ETF,thematic_equity,Tech,True,,,4692343296,279162465.84472275,2023-04-10,0.3,2026-05-06,False,False,False
+XOP,State Street SPDR S&P Oil & Gas Exploration & Production ETF,sector,Energy,True,,,3564897792,751297483.6720744,2006-06-19,0.35,2026-05-06,False,False,False
+IDEF,iShares Defense Industrials Active ETF,sector,Industrials,False,short history,,3544368384,21029440.889649708,2025-05-19,0.55,2026-05-06,False,False,False
+EUFN,iShares MSCI Europe Financials ETF,sector,Financials,True,,,3602787840,46251135.562009685,2010-01-20,0.49,2026-05-06,False,False,False
+EWU,iShares MSCI United Kingdom ETF,intl_dev,Int'l Developed,True,,,3478811648,82576184.24944,1996-03-12,0.5,2026-05-06,False,False,False
+AAXJ,iShares MSCI All Country Asia ex Japan ETF,em,Emerging Markets,True,,,3838145792,104257051.74553376,2008-08-13,0.72,2026-05-06,False,False,False
+SPHD,Invesco S&P 500 High Dividend Low Volatility ETF,us_equity,Smart Beta,True,,,3310963456,33360428.25980212,2012-10-18,0.3,2026-05-06,False,False,False
+CALF,Pacer US Small Cap Cash Cows ETF,us_equity,Small / Mid Cap,True,,,3441707008,42932701.573832326,2017-06-16,0.59,2026-05-06,False,False,False
+IHI,iShares U.S. Medical Devices ETF,sector,Defensives,True,,,3193428992,113785058.00866394,2006-05-01,0.38,2026-05-06,False,False,False
+CORO,iShares International Country Rotation Active ETF,intl_dev,Int'l Developed,False,short history,,3615154688,29420082.36379242,2024-12-03,0.55,2026-05-06,False,False,False
+FLJP,Franklin FTSE Japan ETF,intl_dev,Int'l Developed,False,redundant,EWJ,3519123968,61279999.79792404,2017-11-02,0.09,2026-05-06,False,False,False
+REMX,VanEck Rare Earth and Strategic Metals ETF,sector,Materials,True,,,3016671488,109228350.00677338,2010-10-27,0.53,2026-05-06,False,False,False
+FLIN,Franklin FTSE India ETF,em,Emerging Markets,True,,,2532302336,16069351.16357142,2018-02-06,0.19,2026-05-06,False,False,False
+CQQQ,Invesco China Technology ETF,sector,Tech,True,,,2733304064,45447380.76471749,2009-12-08,0.65,2026-05-06,False,False,False
+ITB,iShares U.S. Home Construction ETF,thematic_equity,Consumer Cyclical,True,,,2540537344,214286440.3402405,2006-05-01,0.38,2026-05-06,False,False,False
+EPI,WisdomTree India Earnings Fund,em,Emerging Markets,True,,,2191805952,33661320.26817398,2008-02-22,0.84,2026-05-06,False,False,False
+URNM,Sprott Uranium Miners ETF,thematic_equity,Materials,True,,,2438628352,43900152.78443527,2019-12-03,0.75,2026-05-06,False,False,False
+ICLN,iShares Global Clean Energy ETF,thematic_equity,Energy,True,,,2502674688,141371215.60869598,2008-06-24,0.39,2026-05-06,False,False,False
+EWW,iShares MSCI Mexico ETF,em,Emerging Markets,True,,,2194174464,135464754.29054564,1996-03-12,0.5,2026-05-06,False,False,False
+CGMM,Capital Group U.S. Small and Mid Cap ETF,us_equity,Small / Mid Cap,False,short history,,2496691456,38756870.450888194,2025-01-14,0.51,2026-05-06,False,False,False
+FENY,Fidelity MSCI Energy Index ETF,sector,Energy,True,,,2027336576,97382112.96301918,2013-10-21,0.084,2026-05-06,False,False,False
+IYE,iShares U.S. Energy ETF,sector,Energy,True,,,1785330816,88368845.225125,2000-06-12,0.38,2026-05-06,False,False,False
+DFAR,Dimensional US Real Estate ETF,sector,Real Estate,True,,,1683828992,52471243.184376016,2022-02-23,0.19,2026-05-06,False,False,False
+KLMN,Invesco MSCI North America Climate ETF,us_equity,US Broad,False,short history,,2158075648,67333953.76177286,2024-12-09,0.09,2026-05-06,False,False,False
+BIZD,VanEck BDC Income ETF,sector,Financials,True,,,1622104832,52625649.27523537,2013-02-11,9.69,2026-05-06,False,False,False
+TAN,Invesco Solar ETF,thematic_equity,Energy,True,,,1624940032,71199712.73453915,2008-04-15,0.7,2026-05-06,False,False,False
+XHB,State Street SPDR S&P Homebuilders ETF,thematic_equity,Consumer Cyclical,True,,,1531830144,203911054.8561035,2006-01-31,0.35,2026-05-06,False,False,False
+ASHR,Xtrackers Harvest CSI 300 China A-Shares ETF,em,Emerging Markets,True,,,1825116032,157734246.67787427,2013-11-06,0.65,2026-05-06,False,False,False
+EWG,iShares MSCI Germany Index Fund,intl_dev,Int'l Developed,True,,,1447307008,102765415.3258128,1996-03-12,0.49,2026-05-06,False,False,False
+EWA,iShares MSCI Australia Index Fund,intl_dev,Int'l Developed,True,,,1354136320,86576137.16686344,1996-03-12,0.5,2026-05-06,False,False,False
+KBE,State Street SPDR S&P Bank ETF,sector,Financials,True,,,1492843904,122620510.89214551,2005-11-08,0.35,2026-05-06,False,False,False
+FXN,First Trust Energy AlphaDEX Fund,sector,Energy,True,,,1211370496,46700653.64634533,2007-05-08,0.63,2026-05-06,False,False,False
+SOXQ,Invesco PHLX Semiconductor ETF,sector,Tech,False,redundant,SMH,1628057856,114185846.7798467,2021-06-11,0.19,2026-05-06,False,False,False
+ARKG,ARK Genomic Revolution ETF,thematic_equity,Defensives,True,,,1235872256,71435698.4356772,2014-10-31,0.75,2026-05-06,False,False,False
+ECH,iShares MSCI Chile ETF,em,Emerging Markets,True,,,1038261952,28436240.208842468,2007-11-12,0.59,2026-05-06,False,False,False
+EWH,iShares MSCI Hong Kong Index Fund,em,Emerging Markets,True,,,926581440,104175674.81414428,1996-03-12,0.5,2026-05-06,False,False,False
+FCG,First Trust Natural Gas ETF,sector,Energy,True,,,817525120,42940066.83941682,2007-05-08,0.59,2026-05-06,False,False,False
+IYZ,iShares U.S. Telecommunications ETF,thematic_equity,Tech,True,,,966349952,70237101.45927748,2000-05-22,0.38,2026-05-06,False,False,False
+JETS,U.S. Global Jets ETF,sector,Industrials,True,,,738243584,113227857.01138408,2015-04-30,0.6,2026-05-06,False,False,False
+MSOS,AdvisorShares Pure US Cannabis ETF,thematic_equity,Thematic,True,,,1066717632,56375512.14168623,2020-09-01,0.78,2026-05-06,False,False,False
+KSA,iShares MSCI Saudi Arabia ETF,em,Emerging Markets,True,,,722204224,19990886.355575178,2015-09-16,0.75,2026-05-06,False,False,False
+KIE,State Street SPDR S&P Insurance ETF,sector,Financials,True,,,452629920,66684276.27992783,2005-11-08,0.35,2026-05-06,False,False,False
+XRT,State Street SPDR S&P Retail ETF,sector,Consumer Cyclical,True,,,205956352,393938214.0319984,2006-06-19,0.35,2026-05-06,False,False,False
+MORT,VanEck Mortgage REIT Income ETF,sector,Financials,True,,,407406048,10613931.577935535,2011-08-16,0.43,2026-05-06,False,False,False
+FTXO,First Trust Nasdaq Bank ETF,sector,Financials,True,,,313549248,40681626.07421875,2016-09-20,0.6,2026-05-06,False,False,False
+WCLD,WisdomTree Cloud Computing Fund,sector,Tech,True,,,226912688,31264550.091012955,2019-09-06,0.45,2026-05-06,False,False,False
+GXC,State Street SPDR S&P China ETF,em,Emerging Markets,False,redundant,MCHI,478823232,3876142.783669536,2007-03-19,0.59,2026-05-06,False,False,False
+FFTY,Innovator IBD 50 ETF,thematic_equity,Thematic,True,,,87688968,2296097.3003543853,2015-04-08,0.8,2026-05-06,False,False,False
+RSPT,Invesco S&P 500 Equal Weight Technology ETF,sector,Tech,True,,,4586319872,25686484.08473053,2006-11-01,0.4,2026-05-06,False,False,False
+PBJ,Invesco Food & Beverage ETF,sector,Defensives,True,,,94416696,812433.8044910431,2005-06-23,0.61,2026-05-06,False,False,False
+RSPS,Invesco S&P 500 Equal Weight Consumer Staples ETF,sector,Defensives,True,,,239442496,2961888.404832967,2006-11-01,0.4,2026-05-06,False,False,False
+IBUY,Amplify Online Retail ETF,thematic_equity,Consumer Cyclical,True,,,118555376,552876.8932779947,2016-04-19,0.65,2026-05-06,False,False,False
+RSPR,Invesco S&P 500 Equal Weight Real Estate ETF,sector,Real Estate,True,,,96955960,479760.2916666667,2015-08-13,0.4,2026-05-06,False,False,False
+DRIV,Global X Autonomous & Electric Vehicles ETF,thematic_equity,Consumer Cyclical,True,,,400979072,2236323.8250686647,2018-04-13,0.68,2026-05-06,False,False,False
+PEJ,Invesco Leisure and Entertainment ETF,sector,Consumer Cyclical,True,,,245485728,1196588.5653625487,2005-06-23,0.57,2026-05-06,False,False,False
+XTL,State Street SPDR S&P Telecom ETF,sector,Tech,True,,,781880320,31007971.28257599,2011-01-26,0.35,2026-05-06,False,False,False
+XSW,State Street SPDR S&P Software & Services ETF,sector,Tech,False,redundant,IGV,364839456,18441724.08188324,2011-09-28,0.35,2026-05-06,False,False,False
+QQQE,Direxion NASDAQ-100 Equal Weighted Index ETF,us_equity,US Growth,True,,,1226487680,20046465.084598288,2012-03-21,0.35,2026-05-06,False,False,False
+IPAY,Amplify Digital Payments ETF,thematic_equity,Financials,True,,,174386624,929947.4830454508,2015-07-15,0.75,2026-05-06,False,False,False
+USO,United States Oil Fund LP,commodity,Commodity,False,non-equity,,1942278400,3539801527.6868634,2006-04-10,0.86,2026-05-06,False,False,False
+RSPD,Invesco S&P 500 Equal Weight Consumer Discretionary ETF,sector,Consumer Cyclical,True,,,275448096,2087547.255212148,2006-11-01,0.4,2026-05-06,False,False,False
+KCE,State Street SPDR S&P Capital Markets ETF,sector,Financials,True,,,456007712,2232809.49043274,2005-11-08,0.35,2026-05-06,False,False,False
+ROBO,ROBO Global Robotics and Automation Index ETF,thematic_equity,Tech,True,,,1771024000,11899912.283802796,2013-10-22,0.95,2026-05-06,False,False,False
+GNR,State Street SPDR S&P Global Natural Resources ETF,sector,Materials,True,,,4867213312,24959273.530196127,2010-09-13,0.4,2026-05-06,False,False,False
+BOAT,SonicShares Global Shipping ETF,sector,Industrials,True,,,82696816,1166381.9312451682,2021-08-03,0.69,2026-05-06,False,False,False
+BUZZ,VanEck Social Sentiment ETF,thematic_equity,Thematic,True,,,100414064,7418622.05,2021-03-02,0.76,2026-05-06,False,False,False
+XHS,State Street SPDR S&P Health Care Services ETF,sector,Defensives,True,,,97861840,785792.006729126,2011-09-28,0.35,2026-05-06,False,False,False
+RSPH,Invesco S&P 500 Equal Weight Health Care ETF,sector,Defensives,True,,,684910208,2254404.530275028,2006-11-01,0.4,2026-05-06,False,False,False
+MOO,VanEck Agribusiness ETF,sector,Materials,True,,,1164515328,33437534.582954407,2007-08-31,0.56,2026-05-06,False,False,False
+RSPF,Invesco S&P 500 Equal Weight Financials ETF,sector,Financials,True,,,274439008,726972.158241272,2006-11-01,0.4,2026-05-06,False,False,False
+RSPN,Invesco S&P 500 Equal Weight Industrials ETF,sector,Industrials,True,,,981369856,10899495.08511505,2006-11-01,0.4,2026-05-06,False,False,False
+GBTC,Grayscale Bitcoin Trust ETF,crypto,Crypto,False,non-equity,,11522479104,145160539.10966083,2013-09-25,1.5,2026-05-06,False,False,False
+XTN,State Street SPDR S&P Transportation ETF,sector,Industrials,True,,,208044304,9625673.588789368,2011-01-26,0.35,2026-05-06,False,False,False
+RSPG,Invesco S&P 500 Equal Weight Energy ETF,sector,Energy,True,,,624124736,15808747.38478292,2006-11-01,0.4,2026-05-06,False,False,False
+BLOK,Amplify Blockchain Technology ETF,thematic_equity,Tech,True,,,1167725440,19774509.92791824,2018-01-16,0.7,2026-05-06,False,False,False
+RSPC,Invesco S&P 500 Equal Weight Communication Services ETF,sector,Tech,True,,,64224192,343902.7120868683,2018-11-07,0.4,2026-05-06,False,False,False
+RSPU,Invesco S&P 500 Equal Weight Utilities ETF,sector,Defensives,True,,,574767040,5553322.061703491,2006-11-01,0.4,2026-05-06,False,False,False
+XSD,State Street SPDR S&P Semiconductor ETF,sector,Tech,True,,,2475979008,40771508.70739746,2006-01-31,0.35,2026-05-06,False,False,False
+RSPM,Invesco S&P 500 Equal Weight Materials ETF,sector,Materials,True,,,179193712,1154472.6363423665,2006-11-01,0.4,2026-05-06,False,False,False
+XHE,State Street SPDR S&P Health Care Equipment ETF,sector,Defensives,False,redundant,IHI,129676904,2690942.27131958,2011-01-26,0.35,2026-05-06,False,False,False
+XPH,State Street SPDR S&P Pharmaceuticals ETF,sector,Defensives,True,,,354865088,3134971.213228607,2006-06-19,0.35,2026-05-06,False,False,False
+XAR,State Street SPDR S&P Aerospace & Defense ETF,sector,Industrials,False,redundant,ITA,5887883264,61399136.82515258,2011-09-28,0.35,2026-05-06,False,False,False
+XES,State Street SPDR S&P Oil & Gas Equipment & Services ETF,sector,Energy,True,,,566233344,19491963.05472234,2006-06-19,0.35,2026-05-06,False,False,False
+PBW,Invesco WilderHill Clean Energy ETF,thematic_equity,Energy,True,,,447320416,27012428.28947957,2005-03-03,0.64,2026-05-06,False,False,False
+SLX,VanEck Steel ETF,sector,Materials,True,,,159415872,2689159.7342285155,2006-10-10,0.55,2026-05-06,False,False,False

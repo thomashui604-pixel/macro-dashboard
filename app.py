@@ -2173,148 +2173,174 @@ with tab7:
     st.markdown("### 📊 Macro Relative Strength Dashboard")
     st.caption("Global Equity Neutral — ACWI Denominator. Strips out global equity beta to surface which themes and regions are attracting capital relative to the world average.")
 
-    # ── Externalized Universe Management ──
+    # ── Universe loader (enriched schema: see universe_rules.py) ──
+    from universe_rules import (
+        AssetClass, THEMES, apply_rules, enrich_metadata, enrich_one,
+        classify_new_ticker,
+    )
+    from datetime import datetime as _dt, timezone as _tz, timedelta as _td
+
     UNIVERSE_CSV = Path("universe.csv")
-    DEDUP_JSON = Path("dedup_map.json")
+
+    def load_universe_full():
+        """Raw enriched CSV (all rows, all columns) — for admin UI."""
+        if not UNIVERSE_CSV.exists():
+            return pd.DataFrame()
+        return pd.read_csv(UNIVERSE_CSV)
 
     def load_universe():
-        if UNIVERSE_CSV.exists():
-            return pd.read_csv(UNIVERSE_CSV)
-        return pd.DataFrame(columns=["Symbol", "Description", "Focus"])
+        """Filtered + renamed for downstream RS code.
 
-    def load_dedup_map():
-        if DEDUP_JSON.exists():
-            try:
-                with open(DEDUP_JSON, "r") as f:
-                    return json.load(f)
-            except:
-                return {}
-        return {}
+        Returns only `included == True` rows, normalized to the legacy column
+        names (Symbol/Description/Theme) so the RS analytics code is unchanged.
+        """
+        df = load_universe_full()
+        if df.empty:
+            return pd.DataFrame(columns=["Symbol", "Description", "Theme"])
+        df = df[df["included"] == True].copy()
+        df = df.rename(columns={"symbol": "Symbol", "name": "Description", "theme": "Theme"})
+        return df
 
-    # ── Admin: Universe Update ──
+    # ── Admin: Universe Editor (st.data_editor) ──
+    STALE_DAYS = 7
+
+    def _stale_symbols(df: pd.DataFrame) -> list[str]:
+        """Symbols with missing or older-than-STALE_DAYS last_refreshed."""
+        if "last_refreshed" not in df.columns:
+            return df["symbol"].tolist()
+        cutoff = (_dt.now(_tz.utc) - _td(days=STALE_DAYS)).date().isoformat()
+        mask = df["last_refreshed"].isna() | (df["last_refreshed"].astype(str) < cutoff)
+        return df.loc[mask, "symbol"].tolist()
+
     with st.expander("🛠️ Universe Management (Admin)"):
-        col_up, col_info = st.columns([2, 3])
-        with col_up:
-            uploaded_file = st.file_uploader("Upload new universe.csv", type=["csv"])
-            if uploaded_file is not None:
-                new_df = pd.read_csv(uploaded_file)
-                if all(c in new_df.columns for c in ["Symbol", "Description", "Focus"]):
-                    new_df.to_csv(UNIVERSE_CSV, index=False)
-                    st.success("Universe updated! Refreshing data...")
+        full = load_universe_full()
+        if full.empty:
+            st.warning("universe.csv not found.")
+        else:
+            n_in = int(full["included"].sum())
+            n_ex = len(full) - n_in
+            n_stale = len(_stale_symbols(full))
+            st.caption(f"{len(full)} ETFs · {n_in} included · {n_ex} excluded · "
+                       f"{n_stale} with stale metadata (>{STALE_DAYS}d). "
+                       "Edit `theme`, `included`, `canonical_for`, or `override` below. "
+                       "Set `override=True` to preserve a manual `included` choice across rule re-runs.")
+
+            # ── Quick add ──
+            qa1, qa2 = st.columns([1, 4])
+            with qa1:
+                new_sym = st.text_input("Add ticker", placeholder="e.g. SMH", key="qa_symbol").strip().upper()
+            with qa2:
+                st.caption("Paste a ticker → fetches metadata, proposes asset_class + theme, applies rules. ~2s.")
+                if new_sym and st.button(f"➕ Add {new_sym}", key="qa_add"):
+                    if new_sym in set(full["symbol"].astype(str).str.upper()):
+                        st.warning(f"{new_sym} already in universe.")
+                    else:
+                        with st.spinner(f"Fetching {new_sym}…"):
+                            md = enrich_one(new_sym)
+                        if md.aum is None and md.long_name is None:
+                            st.error(f"Could not fetch metadata for {new_sym}. Check the ticker.")
+                        else:
+                            name, ac, theme = classify_new_ticker(new_sym, md)
+                            new_row = {
+                                "symbol": new_sym, "name": name,
+                                "asset_class": ac, "theme": theme,
+                                "included": True, "exclude_reason": None,
+                                "canonical_for": None,
+                                "aum": md.aum, "avg_volume_30d": md.avg_volume_30d,
+                                "inception_date": md.inception_date,
+                                "expense_ratio": md.expense_ratio,
+                                "last_refreshed": md.last_refreshed,
+                                "is_leveraged": md.is_leveraged,
+                                "is_single_stock": md.is_single_stock,
+                                "override": False,
+                            }
+                            full2 = pd.concat([full, pd.DataFrame([new_row])], ignore_index=True)
+                            full2 = apply_rules(full2, preserve_overrides=True)
+                            full2.to_csv(UNIVERSE_CSV, index=False)
+                            st.cache_data.clear()
+                            row = full2[full2["symbol"] == new_sym].iloc[0]
+                            verdict = "✅ included" if row["included"] else f"❌ excluded ({row['exclude_reason']})"
+                            st.success(f"Added {new_sym} — {name} → {ac} / {theme} — {verdict}")
+                            st.rerun()
+
+            show_excluded = st.checkbox("Show excluded rows", value=False)
+            view = full if show_excluded else full[full["included"] == True]
+
+            edited = st.data_editor(
+                view,
+                use_container_width=True, height=420, hide_index=True,
+                num_rows="dynamic",
+                column_config={
+                    "symbol":         st.column_config.TextColumn(disabled=True),
+                    "name":           st.column_config.TextColumn(disabled=True),
+                    "asset_class":    st.column_config.SelectboxColumn(options=[ac.value for ac in AssetClass]),
+                    "theme":          st.column_config.SelectboxColumn(options=THEMES),
+                    "included":       st.column_config.CheckboxColumn(),
+                    "exclude_reason": st.column_config.TextColumn(disabled=True),
+                    "canonical_for":  st.column_config.TextColumn(help="Set to canonical sibling ticker to deduplicate."),
+                    "override":       st.column_config.CheckboxColumn(help="If true, manual `included` is preserved across rule re-runs."),
+                    "aum":            st.column_config.NumberColumn(format="$%d", disabled=True),
+                    "avg_volume_30d": st.column_config.NumberColumn(format="$%d", disabled=True),
+                    "inception_date": st.column_config.TextColumn(disabled=True),
+                    "expense_ratio":  st.column_config.NumberColumn(format="%.4f", disabled=True),
+                    "last_refreshed": st.column_config.TextColumn(disabled=True),
+                    "is_leveraged":   st.column_config.CheckboxColumn(disabled=True),
+                    "is_single_stock":st.column_config.CheckboxColumn(disabled=True),
+                },
+                key="universe_editor",
+            )
+
+            c1, c2, c3 = st.columns(3)
+            with c1:
+                if st.button("💾 Save changes"):
+                    edited_syms = set(edited["symbol"].astype(str))
+                    view_syms = set(view["symbol"].astype(str))
+                    deleted_syms = view_syms - edited_syms
+
+                    # Splice edited rows back into the full frame
+                    merged = full[~full["symbol"].isin(deleted_syms)].copy()
+                    merged = merged.set_index("symbol")
+                    merged.update(edited.set_index("symbol"))
+                    merged = merged.reset_index()
+
+                    merged = apply_rules(merged, preserve_overrides=True)
+                    merged.to_csv(UNIVERSE_CSV, index=False)
+                    st.cache_data.clear()
+                    msg = "Saved."
+                    if deleted_syms:
+                        msg += f" Deleted: {', '.join(sorted(deleted_syms))}"
+                    st.success(msg)
                     st.rerun()
-                else:
-                    st.error("CSV must contain: Symbol, Description, Focus")
-        with col_info:
-            st.info("💡 Tip: Export from TradingView and ensure column names match. Redundant tickers are handled automatically via 'dedup_map.json'.")
+            with c2:
+                stale = _stale_symbols(full)
+                btn_label = f"🔄 Refresh stale ({len(stale)})" if stale else "🔄 Refresh stale (0)"
+                if st.button(btn_label, disabled=not stale):
+                    with st.spinner(f"Fetching yfinance metadata for {len(stale)} stale symbols…"):
+                        meta = enrich_metadata(stale)
+                        full2 = full.set_index("symbol")
+                        full2.update(meta)
+                        full2 = full2.reset_index()
+                        full2 = apply_rules(full2, preserve_overrides=True)
+                        full2.to_csv(UNIVERSE_CSV, index=False)
+                        st.cache_data.clear()
+                    st.success(f"Refreshed {len(stale)} symbols.")
+                    st.rerun()
+            with c3:
+                if st.button("⚙️ Re-apply rules"):
+                    full2 = apply_rules(full, preserve_overrides=True)
+                    full2.to_csv(UNIVERSE_CSV, index=False)
+                    st.cache_data.clear()
+                    st.success("Rules re-applied.")
+                    st.rerun()
 
     # ── Constants ──
     RS_BASE = "ACWI"
-    # Broad market benchmarks excluded from RS analysis — too generic to carry signal
-    RS_EXCLUDE = {
-        "SPY", "IVV", "VOO", "SPYM",          # S&P 500
-        "QQQ", "QQQM",                          # Nasdaq 100
-        "DIA",                                  # Dow Jones
-        "VTI", "ITOT", "SCHB", "SPTM", "DFUS", # Total US market
-        "VT",                                   # Total World
-        "ACWI", "ACWX",                         # ACWI (benchmark itself)
-        "VXUS", "VEU", "IXUS",                  # Total ex-US
-        "IWB", "SCHX", "SCHK", "OEF",          # Russell 1000 / broad large cap
-        "RSP",                                  # S&P 500 equal weight
-    }
-
-    # Theme buckets — 16 total:
-    #   US Broad | US Growth | US Value / Div | Small / Mid Cap | Smart Beta
-    #   Tech | Financials | Industrials | Consumer Cyclical | Defensives
-    #   Energy | Materials | Real Estate | Int'l Developed | Emerging Markets | Thematic
-    def assign_rs_theme(row):
-        f = str(row["Focus"]).strip().lower()
-        d = str(row["Description"]).lower()
-
-        # 1. Direct sector mapping (Focus values are case-inconsistent in source CSV)
-        sector_map = {
-            "energy":                 "Energy",
-            "materials":              "Materials",
-            "information technology": "Tech",
-            "communication services": "Tech",
-            "financials":             "Financials",
-            "industrials":            "Industrials",
-            "consumer discretionary": "Consumer Cyclical",
-            "health care":            "Defensives",
-            "utilities":              "Defensives",
-            "consumer staples":       "Defensives",
-            "real estate":            "Real Estate",
-            "high dividend yield":    "US Value / Div",
-        }
-        if f in sector_map:
-            return sector_map[f]
-
-        # 2. Size buckets
-        if f in ("mid cap", "small cap"):
-            return "Small / Mid Cap"
-
-        # 3. Broad / style / regional — "Large cap" and "Total market" mix US,
-        #    international, EM, factor, growth, and value; disambiguate via description.
-        if f in ("large cap", "total market", "extended market"):
-            em_keys = ("emerging", "msci em", "china", "korea", "india", "brazil",
-                       "mexico", "latin", "taiwan", "chile", "saudi")
-            intl_keys = ("international", "intl", "ex us", "ex-us", "ex u.s.",
-                         "developed", "eafe", "euro", "japan", "pacific",
-                         "all world", "all country", "global", "acwi",
-                         "canada", "germany", "australia", "united kingdom", "hong kong")
-            factor_keys = ("quality", "momentum", "min vol", "minimum volatility",
-                           "low volatility", "factor", "profitab", "moat")
-            value_keys = ("value", "dividend", "div appreciation", "div growth",
-                          "income", "cash flow")
-
-            if any(k in d for k in em_keys):     return "Emerging Markets"
-            if any(k in d for k in intl_keys):   return "Int'l Developed"
-            if any(k in d for k in factor_keys): return "Smart Beta"
-            if any(k in d for k in ("growth", "nasdaq")): return "US Growth"
-            if any(k in d for k in value_keys):  return "US Value / Div"
-            if f == "extended market":           return "Small / Mid Cap"
-            return "US Broad"
-
-        # 4. Thematic — route to proper sector where exposure is clear,
-        #    fall back to generic Thematic for pure narrative plays.
-        if f == "theme":
-            if any(k in d for k in ("uranium", "gold", "silver", "copper",
-                                    "metals", "mining", "rare earth")):
-                return "Materials"
-            if any(k in d for k in ("china", "emerging")):
-                return "Emerging Markets"
-            if any(k in d for k in ("biotech", "genomic", "pharma", "medical")):
-                return "Defensives"
-            if any(k in d for k in ("home", "construction", "homebuilder",
-                                    "online retail", "e-commerce",
-                                    "autonomous", "electric vehicle")):
-                return "Consumer Cyclical"
-            if any(k in d for k in ("infrastructure", "aerospace", "defense")):
-                return "Industrials"
-            if any(k in d for k in ("payment", "fintech")):
-                return "Financials"
-            if any(k in d for k in ("cyber", "cloud", "artificial intelligence",
-                                    "robot", "innovation", "semi", "software",
-                                    "internet", "tech", "data center", "blockchain",
-                                    "magnificent", "telecommunications")):
-                return "Tech"
-            return "Thematic"
-
-        return "Other"
 
     @st.cache_data(ttl=3600, show_spinner="Calculating Relative Strength...")
     def get_rs_analytics(rs_rank_lookback=126):
         universe = load_universe()
-        dedup_map = load_dedup_map()
-        
         if universe.empty:
             return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
-            
-        # Deduplication & Filtering
-        universe = universe[~universe["Symbol"].isin(dedup_map.keys())].copy()
-        universe = universe[~universe["Symbol"].isin(RS_EXCLUDE)].copy()
-        yield_keywords = ["yieldmax", "option income", "covered call"]
-        universe = universe[~universe["Description"].str.lower().str.contains("|".join(yield_keywords))].copy()
-        universe["Theme"] = universe.apply(assign_rs_theme, axis=1)
 
         tickers = universe["Symbol"].tolist()
         if RS_BASE not in tickers: tickers.append(RS_BASE)
