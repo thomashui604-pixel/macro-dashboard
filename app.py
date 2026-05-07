@@ -2019,15 +2019,11 @@ with tab6:
         if rrg_data:
             all_rs = [v for d in rrg_data.values() for v in d["rs_ratio"]]
             all_mom = [v for d in rrg_data.values() for v in d["rs_momentum"]]
-            
-            # Find the absolute maximum deviation from 100 on EITHER axis
-            x_dev = max(abs(max(all_rs) - 100.0), abs(min(all_rs) - 100.0), 0.5) * 1.15
-            y_dev = max(abs(max(all_mom) - 100.0), abs(min(all_mom) - 100.0), 0.5) * 1.15
-            max_dev = max(x_dev, y_dev)
-            
-            # Enforce a perfectly symmetrical coordinate system
-            x_min, x_max = 100.0 - max_dev, 100.0 + max_dev
-            y_min, y_max = 100.0 - max_dev, 100.0 + max_dev
+            # Center axes symmetrically around (100, 100), fit to data spread
+            x_half = max(abs(max(all_rs) - 100.0), abs(min(all_rs) - 100.0), 0.5) * 1.15
+            y_half = max(abs(max(all_mom) - 100.0), abs(min(all_mom) - 100.0), 0.5) * 1.15
+            x_min, x_max = 100.0 - x_half, 100.0 + x_half
+            y_min, y_max = 100.0 - y_half, 100.0 + y_half
 
             fig_rrg = go.Figure()
 
@@ -2067,63 +2063,50 @@ with tab6:
             for i, (sname, dct) in enumerate(rrg_data.items()):
                 rs_r = dct["rs_ratio"]
                 rs_m = dct["rs_momentum"]
-                color = SECTOR_COLORS[i % len(SECTOR_COLORS)]
-                
-                # Smart label offset based on quadrant
-                last_x, last_y = rs_r[-1], rs_m[-1]
-                off_x = 0.15 if last_x >= 100 else -0.15
-                off_y = 0.15 if last_y >= 100 else -0.15
-
-                # Main trace (Tail + Head)
+                color = SECTOR_COLORS[i]
+                hex_c = color.lstrip("#")
+                cr, cg, cb = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
+                n = len(rs_r)
+                # Fade opacity along the tail (oldest → newest)
+                marker_colors = [f"rgba({cr},{cg},{cb},{0.15 + 0.6 * j / max(n - 2, 1)})" for j in range(n - 1)]
+                marker_colors.append(color)
+                # Tail line
                 fig_rrg.add_trace(go.Scatter(
                     x=rs_r, y=rs_m,
                     mode="lines+markers",
                     name=sname,
-                    line=dict(color=color, width=1.5),
-                    opacity=0.4, # Ghosted tails
+                    line=dict(color=f"rgba({cr},{cg},{cb},0.4)", width=1),
                     marker=dict(
-                        size=[2]*(len(rs_r)-1) + [10],
-                        color=color,
-                        symbol=["circle"]*(len(rs_r)-1) + ["diamond"],
-                        line=dict(width=1, color="white")
+                        size=[3] * (n - 1) + [9],
+                        color=marker_colors,
+                        symbol=["circle"] * (n - 1) + ["diamond"],
+                        line=dict(width=0),
                     ),
                     customdata=dct["dates"],
-                    hovertemplate=f"<b>{sname}</b><br>Date: %{{customdata}}<br>RS-Ratio: %{{x:.2f}}<br>RS-Mom: %{{y:.2f}}<extra></extra>",
+                    hovertemplate=(
+                        f"{sname}<br>"
+                        "Date: %{customdata}<br>"
+                        "RS-Ratio: %{x:.2f}<br>"
+                        "RS-Mom: %{y:.2f}<extra></extra>"
+                    ),
                 ))
-
-                # High-contrast Label (separate trace for better control)
-                fig_rrg.add_trace(go.Scatter(
-                    x=[last_x + off_x], y=[last_y + off_y],
-                    mode="text",
-                    text=[f"<b>{sname}</b>"],
-                    textposition="middle center",
-                    textfont=dict(size=10, color=color),
-                    showlegend=False,
-                    hoverinfo="skip"
-                ))
-
-            # Add origin marker
-            fig_rrg.add_trace(go.Scatter(
-                x=[100], y=[100], mode="markers",
-                marker=dict(size=12, color="white", symbol="cross-thin", line=dict(width=2)),
-                showlegend=False, hoverinfo="skip"
-            ))
+                # Label at latest point
+                fig_rrg.add_annotation(
+                    x=rs_r[-1], y=rs_m[-1],
+                    text=f" {sname}",
+                    showarrow=False, xanchor="left",
+                    font=dict(size=9, color=color),
+                )
 
             fig_rrg.update_layout(
-                make_layout("Relative Rotation Graph — S&P 500 Sectors", height=750),
-                xaxis_title="RS-Ratio (Strength) →",
-                yaxis_title="RS-Momentum (Trend) →",
+                make_layout("Relative Rotation Graph — S&P 500 Sectors", height=580),
+                xaxis_title="RS-Ratio →",
+                yaxis_title="RS-Momentum →",
                 hovermode="closest",
-                xaxis=dict(range=[x_min, x_max], gridcolor="#21262d", zerolinecolor="#30363d", constrain="domain"),
-                yaxis=dict(range=[y_min, y_max], gridcolor="#21262d", zerolinecolor="#30363d", scaleanchor="x", scaleratio=1),
-                uirevision=True, # Maintain zoom on refresh
-                margin=dict(l=50, r=50, t=80, b=50), # Tighter margins for better fit
+                xaxis=dict(range=[x_min, x_max], gridcolor="#21262d", zerolinecolor="#30363d"),
+                yaxis=dict(range=[y_min, y_max], gridcolor="#21262d", zerolinecolor="#30363d"),
             )
-            
-            # Center the square chart in a wide layout using columns
-            rrg_c1, rrg_c2, rrg_c3 = st.columns([1, 8, 1])
-            with rrg_c2:
-                st.plotly_chart(fig_rrg, use_container_width=True)
+            st.plotly_chart(fig_rrg, use_container_width=True)
         else:
             st.info("Insufficient history for RRG calculation (need ~20+ weeks).")
 
