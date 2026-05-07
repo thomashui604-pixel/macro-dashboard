@@ -860,6 +860,15 @@ with tab2:
     FOMC_DATES = get_dynamic_fomc_dates()
 
     def compute_fedwatch(contracts_dict, current_effr, fomc_dates):
+        """
+        Bloomberg WIRP-style FedWatch.
+        Maps EFFR to Target Midpoint and builds a step-function probability tree.
+        """
+        # EFFR is usually ~7-8bps below the Target Upper Bound (e.g. 5.33 in a 5.25-5.50 range)
+        # We assume target midpoint is ~4-5bps above current EFFR.
+        EFFR_TARGET_SPREAD = 0.045 
+        current_target_mid = current_effr + EFFR_TARGET_SPREAD
+
         month_key = lambda d: f"{d.strftime('%b')} {d.year}"
         results =[]
         prev_post_rate = None
@@ -909,66 +918,53 @@ with tab2:
             elif d_a <= 10 and next_key in contracts_dict and next_mtg_day >= 15:
                 post_rate = contracts_dict[next_key]
             elif d_a <= 10 and next_key not in contracts_dict:
-                # FIX: If we are blind to the next month on the far end of the curve, 
-                # do not run the CME multiplier on late-month meetings. Avoids the blowout.
                 post_rate = month_rate
             else:
                 if d_a == 0: d_a = 1
                 post_rate = (month_rate * days_in_month - pre_rate * d_b) / d_a
 
-            # Sanity clamp for illiquid curves
+            # Sanity clamp
             if post_rate < 0 or abs(post_rate - month_rate) > 0.75:
                 post_rate = contracts_dict.get(next_key, month_rate)
 
-            # 3. Calculate Marginal Probabilities
-            delta_bp = (post_rate - pre_rate) * 100
-            m_moves = delta_bp / 25.0
+            # 3. Step-Function Probabilities (25bp nodes)
+            # We calculate the delta from the original current target midpoint
+            delta_from_start = (post_rate + EFFR_TARGET_SPREAD - current_target_mid) * 100
+            m_moves = delta_from_start / 25.0
             
-            lower_move = math.floor(m_moves)
-            upper_move = lower_move + 1
+            # Marginal calculation (from previous meeting rate)
+            delta_marginal = (post_rate - pre_rate) * 100
+            m_marginal = delta_marginal / 25.0
             
-            prob_upper_move = m_moves - lower_move
-            prob_lower_move = 1.0 - prob_upper_move
+            lower_step = math.floor(m_marginal)
+            upper_step = lower_step + 1
+            prob_upper = m_marginal - lower_step
+            prob_lower = 1.0 - prob_upper
             
-            marginal_probs = {
-                lower_move * 25: prob_lower_move,
-                upper_move * 25: prob_upper_move
-            }
+            marginal_probs = {lower_step * 25: prob_lower, upper_step * 25: prob_upper}
 
             # 4. Advance Probability Tree
             new_cum_dist = defaultdict(float)
             for cum_bp, cum_prob in cum_prob_dist.items():
                 for marg_bp, marg_prob in marginal_probs.items():
                     new_cum_dist[cum_bp + marg_bp] += cum_prob * marg_prob
-            
             cum_prob_dist = dict(new_cum_dist)
 
-            # 5. Final Metrics
-            expected_cum_bp = sum(bp * p for bp, p in cum_prob_dist.items())
-            cum_moves = expected_cum_bp / 25.0
+            # 5. Extract Step Probabilities for UI (e.g. Prob of -25, -50)
+            # Bloomberg WIRP shows the probability of specific "buckets"
+            p_25 = sum(p for bp, p in marginal_probs.items() if abs(bp) == 25)
+            p_50 = sum(p for bp, p in marginal_probs.items() if abs(bp) == 50)
             
-            prob_hold = marginal_probs.get(0, 0.0)
-            prob_move = 1.0 - prob_hold
-            move_type = "cut" if delta_bp < -1 else "hike" if delta_bp > 1 else "hold"
-
-            # Cumulative P(Cut) / P(Hike) — probability that the target rate
-            # is net below / above today by this meeting. Derived from the
-            # running probability tree over 25bp nodes.
-            prob_cut_cum  = sum(p for bp, p in cum_prob_dist.items() if bp < 0)
-            prob_hike_cum = sum(p for bp, p in cum_prob_dist.items() if bp > 0)
+            expected_cum_bp = sum(bp * p for bp, p in cum_prob_dist.items())
 
             results.append({
                 "meeting": mtg.strftime("%b %d, %Y"),
-                "pre_rate": pre_rate,
-                "post_rate": post_rate,
-                "delta_bp": delta_bp,
-                "prob_hold": prob_hold,
-                "prob_move": prob_move,
-                "prob_cut_cum":  prob_cut_cum,
-                "prob_hike_cum": prob_hike_cum,
-                "move_type": move_type,
+                "implied_rate": post_rate + EFFR_TARGET_SPREAD,
+                "delta_bp": delta_marginal,
+                "p_25": p_25,
+                "p_50": p_50,
                 "cum_bp": expected_cum_bp,
-                "cum_moves": cum_moves,
+                "cum_moves": expected_cum_bp / 25.0,
             })
             prev_post_rate = post_rate
 
@@ -982,44 +978,31 @@ with tab2:
             fw_results = compute_fedwatch(contracts_dict, effr_for_fw, FOMC_DATES)
 
             if fw_results:
-                # ── Probability table (Bloomberg style) ──
-                grid_cols = "130px 100px 90px 100px 100px 100px"
-                tbl_hdr = f'<div style="display:grid; grid-template-columns:{grid_cols}; gap:6px; padding:4px 8px; font-size:0.68rem; color:#8b949e; font-family:JetBrains Mono,monospace; border-bottom:1px solid #30363d; text-transform:uppercase;">'
-                tbl_hdr += '<span>Meeting Date</span><span style="text-align:right">#Hikes/Cuts</span><span style="text-align:right">P(Cut)</span><span style="text-align:right">%Hike/Cut</span><span style="text-align:right">Δ Impl Rate</span><span style="text-align:right">Implied Rate</span></div>'
+                # ── Probability table (Bloomberg WIRP Style) ──
+                grid_cols = "120px 80px 85px 85px 75px 75px 75px"
+                tbl_hdr = f'<div style="display:grid; grid-template-columns:{grid_cols}; gap:6px; padding:4px 8px; font-size:0.65rem; color:#8b949e; font-family:JetBrains Mono,monospace; border-bottom:1px solid #30363d; text-transform:uppercase;">'
+                tbl_hdr += '<span>Meeting</span><span style="text-align:right">#Hikes/Cuts</span><span style="text-align:right">Imp. Rate</span><span style="text-align:right">Imp. Δ</span><span style="text-align:right">Prob 0</span><span style="text-align:right">Prob 25</span><span style="text-align:right">Prob 50</span></div>'
                 st.markdown(tbl_hdr, unsafe_allow_html=True)
 
                 for r in fw_results:
                     cm = r["cum_moves"]
                     if abs(cm) < 0.05:
-                        cum_label = "—"
-                        cum_color = MUTED
+                        cum_label, cum_color = "—", MUTED
                     elif cm < 0:
-                        cum_label = f"{abs(cm):.1f} cuts"
-                        cum_color = GREEN
+                        cum_label, cum_color = f"{abs(cm):.1f} cuts", GREEN
                     else:
-                        cum_label = f"{cm:.1f} hikes"
-                        cum_color = RED
+                        cum_label, cum_color = f"{cm:.1f} hikes", RED
 
-                    move_label = f'{r["prob_move"]*100:.0f}% {r["move_type"]}'
-                    move_color = GREEN if r["move_type"] == "cut" else RED if r["move_type"] == "hike" else MUTED
-                    delta_color = GREEN if r["delta_bp"] < -1 else RED if r["delta_bp"] > 1 else MUTED
-
-                    # Cumulative P(Cut) — probability rate is net below current by this meeting
-                    pcut_pct = r["prob_cut_cum"] * 100
-                    if pcut_pct >= 1:
-                        pcut_label = f"{pcut_pct:.0f}%"
-                        pcut_color = GREEN
-                    else:
-                        pcut_label = "—"
-                        pcut_color = MUTED
-
-                    row = f'<div style="display:grid; grid-template-columns:{grid_cols}; gap:6px; padding:4px 8px; font-size:0.78rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
+                    p0_val = 1.0 - (r["p_25"] + r["p_50"])
+                    
+                    row = f'<div style="display:grid; grid-template-columns:{grid_cols}; gap:6px; padding:4px 8px; font-size:0.75rem; font-family:JetBrains Mono,monospace; color:#e6edf3; border-bottom:1px solid #161b22;">'
                     row += f'<span style="color:#8b949e;">{r["meeting"]}</span>'
                     row += f'<span style="text-align:right; color:{cum_color}; font-weight:600;">{cum_label}</span>'
-                    row += f'<span style="text-align:right; color:{pcut_color}; font-weight:600;">{pcut_label}</span>'
-                    row += f'<span style="text-align:right; color:{move_color}; font-weight:600;">{move_label}</span>'
-                    row += f'<span style="text-align:right; color:{delta_color};">{r["delta_bp"]:+.1f}</span>'
-                    row += f'<span style="text-align:right; font-weight:600;">{r["post_rate"]:.3f}%</span>'
+                    row += f'<span style="text-align:right; font-weight:600;">{r["implied_rate"]:.3f}%</span>'
+                    row += f'<span style="text-align:right; color:{BLUE};">{r["delta_bp"]:+.1f}</span>'
+                    row += f'<span style="text-align:right; color:{MUTED};">{p0_val*100:.0f}%</span>'
+                    row += f'<span style="text-align:right; color:{GREEN if r["delta_bp"] < 0 else RED};">{r["p_25"]*100:.0f}%</span>'
+                    row += f'<span style="text-align:right; color:{GREEN if r["delta_bp"] < 0 else RED}; font-weight:700;">{r["p_50"]*100:.0f}%</span>'
                     row += '</div>'
                     st.markdown(row, unsafe_allow_html=True)
 
