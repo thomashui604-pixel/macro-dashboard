@@ -1138,10 +1138,20 @@ with tab2:
 # ═════════════════════════════════════════════════════════════════════
 with tab3:
     ASSET_GROUPS = {
-        "Equity Indices": {
+        "Global & Regions": {
+            "World (ACWI)": "ACWI", "World ex US": "ACWX", "EM (EEM)": "EEM",
+            "Japan (EWJ)": "EWJ", "Korea (EWY)": "EWY", "China (MCHI)": "MCHI",
+            "India (INDA)": "INDA", "Europe (VGK)": "VGK", "UK (EWU)": "EWU",
+            "Brazil (EWZ)": "EWZ",
+        },
+        "Equity Factors (US)": {
+            "Growth (IVW)": "IVW", "Value (IWD)": "IWD", "Momentum (MTUM)": "MTUM",
+            "Quality (QUAL)": "QUAL", "Min Vol (USMV)": "USMV", "Dividend (DVY)": "DVY",
+            "Small Cap Val": "IWN", "Small Cap Gro": "IWO",
+        },
+        "US & Major Indices": {
             "S&P 500": "^GSPC", "Nasdaq 100": "^NDX", "Russell 2000": "^RUT", "DJIA": "^DJI",
             "DAX": "^GDAXI", "Nikkei": "^N225", "Hang Seng": "^HSI", "Euro Stoxx 50": "^STOXX50E",
-            "MSCI EM (EEM)": "EEM",
         },
         "Rates / Bond ETFs": {
             "SHY (1-3Y)": "SHY", "IEF (7-10Y)": "IEF", "TLT (20Y+)": "TLT",
