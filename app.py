@@ -2115,12 +2115,6 @@ with tab6:
                 uirevision=True, # Maintain zoom on refresh
             )
             
-            # Interactive focus: Dim others on hover
-            fig_rrg.update_traces(
-                unselected=dict(marker=dict(opacity=0.1), line=dict(opacity=0.1)),
-                selector=dict(type='scatter')
-            )
-            
             st.plotly_chart(fig_rrg, use_container_width=True)
         else:
             st.info("Insufficient history for RRG calculation (need ~20+ weeks).")
