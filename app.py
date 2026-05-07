@@ -2063,49 +2063,64 @@ with tab6:
             for i, (sname, dct) in enumerate(rrg_data.items()):
                 rs_r = dct["rs_ratio"]
                 rs_m = dct["rs_momentum"]
-                color = SECTOR_COLORS[i]
-                hex_c = color.lstrip("#")
-                cr, cg, cb = int(hex_c[0:2], 16), int(hex_c[2:4], 16), int(hex_c[4:6], 16)
-                n = len(rs_r)
-                # Fade opacity along the tail (oldest → newest)
-                marker_colors = [f"rgba({cr},{cg},{cb},{0.15 + 0.6 * j / max(n - 2, 1)})" for j in range(n - 1)]
-                marker_colors.append(color)
-                # Tail line
+                color = SECTOR_COLORS[i % len(SECTOR_COLORS)]
+                
+                # Smart label offset based on quadrant
+                last_x, last_y = rs_r[-1], rs_m[-1]
+                off_x = 0.15 if last_x >= 100 else -0.15
+                off_y = 0.15 if last_y >= 100 else -0.15
+
+                # Main trace (Tail + Head)
                 fig_rrg.add_trace(go.Scatter(
                     x=rs_r, y=rs_m,
                     mode="lines+markers",
                     name=sname,
-                    line=dict(color=f"rgba({cr},{cg},{cb},0.4)", width=1),
+                    line=dict(color=color, width=1.5),
+                    opacity=0.4, # Ghosted tails
                     marker=dict(
-                        size=[3] * (n - 1) + [9],
-                        color=marker_colors,
-                        symbol=["circle"] * (n - 1) + ["diamond"],
-                        line=dict(width=0),
+                        size=[2]*(len(rs_r)-1) + [10],
+                        color=color,
+                        symbol=["circle"]*(len(rs_r)-1) + ["diamond"],
+                        line=dict(width=1, color="white")
                     ),
                     customdata=dct["dates"],
-                    hovertemplate=(
-                        f"{sname}<br>"
-                        "Date: %{customdata}<br>"
-                        "RS-Ratio: %{x:.2f}<br>"
-                        "RS-Mom: %{y:.2f}<extra></extra>"
-                    ),
+                    hovertemplate=f"<b>{sname}</b><br>Date: %{{customdata}}<br>RS-Ratio: %{{x:.2f}}<br>RS-Mom: %{{y:.2f}}<extra></extra>",
                 ))
-                # Label at latest point
-                fig_rrg.add_annotation(
-                    x=rs_r[-1], y=rs_m[-1],
-                    text=f" {sname}",
-                    showarrow=False, xanchor="left",
-                    font=dict(size=9, color=color),
-                )
+
+                # High-contrast Label (separate trace for better control)
+                fig_rrg.add_trace(go.Scatter(
+                    x=[last_x + off_x], y=[last_y + off_y],
+                    mode="text",
+                    text=[f"<b>{sname}</b>"],
+                    textposition="middle center",
+                    textfont=dict(size=10, color=color),
+                    showlegend=False,
+                    hoverinfo="skip"
+                ))
+
+            # Add origin marker
+            fig_rrg.add_trace(go.Scatter(
+                x=[100], y=[100], mode="markers",
+                marker=dict(size=12, color="white", symbol="cross-thin", line=dict(width=2)),
+                showlegend=False, hoverinfo="skip"
+            ))
 
             fig_rrg.update_layout(
-                make_layout("Relative Rotation Graph — S&P 500 Sectors", height=580),
-                xaxis_title="RS-Ratio →",
-                yaxis_title="RS-Momentum →",
+                make_layout("Relative Rotation Graph — S&P 500 Sectors", height=620),
+                xaxis_title="RS-Ratio (Strength) →",
+                yaxis_title="RS-Momentum (Trend) →",
                 hovermode="closest",
-                xaxis=dict(range=[x_min, x_max], gridcolor="#21262d", zerolinecolor="#30363d"),
-                yaxis=dict(range=[y_min, y_max], gridcolor="#21262d", zerolinecolor="#30363d"),
+                xaxis=dict(range=[x_min, x_max], gridcolor="#21262d", zerolinecolor="#30363d", constrain="domain"),
+                yaxis=dict(range=[y_min, y_max], gridcolor="#21262d", zerolinecolor="#30363d", scaleanchor="x", scaleratio=1),
+                uirevision=True, # Maintain zoom on refresh
             )
+            
+            # Interactive focus: Dim others on hover
+            fig_rrg.update_traces(
+                unselected=dict(marker=dict(opacity=0.1), line=dict(opacity=0.1)),
+                selector=dict(type='scatter')
+            )
+            
             st.plotly_chart(fig_rrg, use_container_width=True)
         else:
             st.info("Insufficient history for RRG calculation (need ~20+ weeks).")
