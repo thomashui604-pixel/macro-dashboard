@@ -1028,7 +1028,7 @@ with tab2:
                 ))
 
                 fig_fw.add_trace(go.Scatter(
-                    x=fw_df["meeting"], y=fw_df["post_rate"],
+                    x=fw_df["meeting"], y=fw_df["implied_rate"],
                     name="Implied Policy Rate (%)",
                     line=dict(color=BLUE, width=3), mode="lines+markers",
                     marker=dict(size=7, color=BLUE),
