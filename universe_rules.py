@@ -408,21 +408,85 @@ def apply_rules(df: pd.DataFrame, preserve_overrides: bool = True) -> pd.DataFra
 
     If `preserve_overrides` and a row has `override == True`, its existing
     `included`/`exclude_reason` are kept (admin manual override).
+
+    Vectorized implementation: rules evaluated as boolean masks, first failing
+    rule wins via np.select.
     """
+    import numpy as np
+
     df = df.copy()
     if "override" not in df.columns:
         df["override"] = False
 
-    incs, reasons = [], []
-    for _, row in df.iterrows():
-        if preserve_overrides and bool(row.get("override", False)):
-            incs.append(bool(row.get("included", True)))
-            reasons.append(row.get("exclude_reason"))
-            continue
-        inc, reason = evaluate_row(row)
-        incs.append(inc)
-        reasons.append(reason)
+    n = len(df)
+    if n == 0:
+        df["included"] = []
+        df["exclude_reason"] = []
+        return df
 
-    df["included"] = incs
-    df["exclude_reason"] = reasons
+    today = datetime.now(timezone.utc)
+
+    sym = df.get("symbol", pd.Series([""] * n, index=df.index)).astype(str).str.upper()
+    name = df.get("name", pd.Series([""] * n, index=df.index)).astype(str)
+    canonical = df.get("canonical_for", pd.Series([pd.NA] * n, index=df.index))
+    asset_class = df.get("asset_class", pd.Series([None] * n, index=df.index))
+    is_lev = df.get("is_leveraged", pd.Series([False] * n, index=df.index)).fillna(False).astype(bool)
+    is_ss = df.get("is_single_stock", pd.Series([False] * n, index=df.index)).fillna(False).astype(bool)
+    aum = pd.to_numeric(df.get("aum", pd.Series([np.nan] * n, index=df.index)), errors="coerce")
+    inception = df.get("inception_date", pd.Series([pd.NA] * n, index=df.index))
+
+    # Equity asset-class check: convert each value through AssetClass enum
+    equity_str = {ac.value for ac in EQUITY_CLASSES}
+    def _ac_str(v):
+        if isinstance(v, AssetClass):
+            return v.value
+        if v is None or (isinstance(v, float) and pd.isna(v)):
+            return None
+        return str(v)
+    ac_strings = asset_class.map(_ac_str)
+    is_equity = ac_strings.isin(equity_str)
+
+    # Inception parse → years since
+    def _years_since(v):
+        if v is None or (isinstance(v, float) and pd.isna(v)) or str(v).strip() == "":
+            return np.nan
+        try:
+            inc_dt = datetime.fromisoformat(str(v)).replace(tzinfo=timezone.utc)
+            return (today - inc_dt).days / 365.25
+        except Exception:
+            return np.nan
+    inception_years = inception.map(_years_since)
+
+    import warnings as _warnings
+    with _warnings.catch_warnings():
+        _warnings.simplefilter("ignore", UserWarning)
+        name_has_lev = name.str.contains(LEVERAGED_RE, na=False)
+        name_has_ss = name.str.contains(SINGLE_STOCK_RE, na=False)
+        name_has_yc = name.str.contains(YIELD_CARRY_RE, na=False)
+
+    cond_broad = sym.isin(BROAD_BENCHMARKS)
+    cond_redundant = canonical.notna() & canonical.astype(str).str.strip().ne("")
+    cond_nonequity = ~is_equity
+    cond_lev = is_lev | name_has_lev
+    cond_single = is_ss | name_has_ss
+    cond_yc = name_has_yc
+    cond_short = inception_years.notna() & (inception_years < MIN_HISTORY_YEARS)
+    cond_aum = aum.notna() & (aum < MIN_AUM)
+
+    conds = [cond_broad, cond_redundant, cond_nonequity, cond_lev, cond_single, cond_yc, cond_short, cond_aum]
+    reasons = ["broad index", "redundant", "non-equity", "leveraged", "single-name", "yield-carry", "short history", "low AUM"]
+
+    reason_arr = np.select(conds, reasons, default=None)
+    included_arr = np.array([r is None for r in reason_arr], dtype=bool)
+
+    if preserve_overrides and "override" in df.columns:
+        ov = df["override"].fillna(False).astype(bool).to_numpy()
+        if ov.any():
+            existing_inc = df.get("included", pd.Series([True] * n, index=df.index)).fillna(True).astype(bool).to_numpy()
+            existing_reason = df.get("exclude_reason", pd.Series([None] * n, index=df.index)).to_numpy()
+            included_arr = np.where(ov, existing_inc, included_arr)
+            reason_arr = np.where(ov, existing_reason, reason_arr)
+
+    df["included"] = included_arr
+    df["exclude_reason"] = pd.Series(reason_arr, index=df.index).where(lambda s: s.notna(), None)
     return df
