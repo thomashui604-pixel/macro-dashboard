@@ -224,7 +224,7 @@ def _fetch_fred_raw(series_id, start=None, end=None):
     except Exception:
         return pd.Series(dtype=float)
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=21600, show_spinner=False)
 def fetch_fred_series(series_id, start=None, end=None):
     """Fetch a FRED series: disk cache → FRED API fallback."""
     cached = _disk_load(series_id, start)
@@ -383,6 +383,25 @@ with st.sidebar:
         st.warning("⚠️ No FRED_API_KEY in secrets. FRED data will be unavailable.")
 
 
+def _yf_closes(tickers, **kwargs):
+    """yf.download → 'Close' DataFrame, robust to MultiIndex / single-ticker shape.
+
+    Returns an empty DataFrame on failure or when no Close data is available.
+    """
+    try:
+        tlist = [tickers] if isinstance(tickers, str) else list(tickers)
+        data = yf.download(tlist, auto_adjust=True, progress=False, threads=True, **kwargs)
+        if data is None or data.empty:
+            return pd.DataFrame()
+        if isinstance(data.columns, pd.MultiIndex):
+            return data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
+        if "Close" in data.columns:
+            return pd.DataFrame({tlist[0]: data["Close"]})
+        return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+
 # ─────────────────────────────────────────────────────────────────────
 # KPI STRIP (compact header)
 # ─────────────────────────────────────────────────────────────────────
@@ -393,23 +412,14 @@ def fetch_kpi_data():
     # yfinance quick data
     tickers_dict = {"SPX": "^GSPC", "DXY": "DX-Y.NYB", "Gold": "GC=F", "VIX": "^VIX"}
     tickers_list = list(tickers_dict.values())
-    try:
-        data = yf.download(tickers_list, period="5d", auto_adjust=True, progress=False, threads=True)
-        if not data.empty:
-            if isinstance(data.columns, pd.MultiIndex):
-                closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
-            else:
-                closes = pd.DataFrame({tickers_list[0]: data["Close"]}) if "Close" in data.columns else pd.DataFrame()
-                
-            for name, ticker in tickers_dict.items():
-                if ticker in closes.columns:
-                    s = closes[ticker].dropna()
-                    if len(s) >= 2:
-                        kpis[name] = {"price": s.iloc[-1], "chg": safe_pct_change(s.iloc[-1], s.iloc[-2])}
-                    elif len(s) == 1:
-                        kpis[name] = {"price": s.iloc[-1], "chg": None}
-    except Exception:
-        pass
+    closes = _yf_closes(tickers_list, period="5d")
+    for name, ticker in tickers_dict.items():
+        if ticker in closes.columns:
+            s = closes[ticker].dropna()
+            if len(s) >= 2:
+                kpis[name] = {"price": s.iloc[-1], "chg": safe_pct_change(s.iloc[-1], s.iloc[-2])}
+            elif len(s) == 1:
+                kpis[name] = {"price": s.iloc[-1], "chg": None}
     # FRED
     effr = fetch_fred_series("DFF")
     if len(effr) > 0:
@@ -421,8 +431,6 @@ def fetch_kpi_data():
     if len(t2y) > 0 and len(t10y) > 0:
         kpis["2s10s"] = {"price": t10y.iloc[-1] - t2y.iloc[-1], "chg": None}
     return kpis
-
-kpi_data = fetch_kpi_data()
 
 def render_kpi_strip(kpis):
     items = []
@@ -447,7 +455,11 @@ def render_kpi_strip(kpis):
         items.append(f'<span class="kpi-item"><span class="kpi-label">{name}</span><span class="kpi-value">{price_str}</span>{chg_html}</span>')
     return '<div class="kpi-strip">' + ''.join(items) + '</div>'
 
-st.markdown(render_kpi_strip(kpi_data), unsafe_allow_html=True)
+@st.fragment
+def _kpi_fragment():
+    st.markdown(render_kpi_strip(fetch_kpi_data()), unsafe_allow_html=True)
+
+_kpi_fragment()
 
 # ─────────────────────────────────────────────────────────────────────
 # TABS
@@ -611,29 +623,22 @@ with tab1:
             if spread_lb != "Max":
                 df_curve = df_curve[df_curve.index >= chart_start_date]
 
-            def get_regime_info(row):
-                sc = row["spread_change"]
-                lc = row["long_yield_change"]
-                shc = row["short_yield_change"]
-                if pd.isna(sc) or pd.isna(lc) or pd.isna(shc):
-                    return ("rgba(128,128,128,0.5)", "Neutral")
-                if lc > 0 and shc < 0:
-                    return ("#f97316", "Steepener Twist")
-                elif lc < 0 and shc > 0:
-                    return ("#eab308", "Flattener Twist")
-                elif sc > 0 and lc > 0:
-                    return ("#ef4444", "Bear Steepener")
-                elif sc > 0 and lc < 0:
-                    return ("#22c55e", "Bull Steepener")
-                elif sc < 0 and lc > 0:
-                    return ("#a855f7", "Bear Flattener")
-                elif sc < 0 and lc < 0:
-                    return ("#3b82f6", "Bull Flattener")
-                else:
-                    return ("rgba(128,128,128,0.5)", "Neutral")
-
-            df_curve["regime_color"] = df_curve.apply(lambda r: get_regime_info(r)[0], axis=1)
-            df_curve["regime_text"] = df_curve.apply(lambda r: get_regime_info(r)[1], axis=1)
+            sc = df_curve["spread_change"]
+            lc = df_curve["long_yield_change"]
+            shc = df_curve["short_yield_change"]
+            conds = [
+                sc.isna() | lc.isna() | shc.isna(),
+                (lc > 0) & (shc < 0),
+                (lc < 0) & (shc > 0),
+                (sc > 0) & (lc > 0),
+                (sc > 0) & (lc < 0),
+                (sc < 0) & (lc > 0),
+                (sc < 0) & (lc < 0),
+            ]
+            color_choices = ["rgba(128,128,128,0.5)", "#f97316", "#eab308", "#ef4444", "#22c55e", "#a855f7", "#3b82f6"]
+            text_choices = ["Neutral", "Steepener Twist", "Flattener Twist", "Bear Steepener", "Bull Steepener", "Bear Flattener", "Bull Flattener"]
+            df_curve["regime_color"] = np.select(conds, color_choices, default="rgba(128,128,128,0.5)")
+            df_curve["regime_text"] = np.select(conds, text_choices, default="Neutral")
 
             fig_spreads = go.Figure()
 
@@ -796,23 +801,14 @@ with tab2:
             labels.append(label)
 
         results =[]
-        try:
-            data = yf.download(tickers, period="5d", auto_adjust=True, progress=False, threads=True)
-            if not data.empty:
-                if isinstance(data.columns, pd.MultiIndex):
-                    closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
-                else:
-                    closes = pd.DataFrame({tickers[0]: data["Close"]}) if "Close" in data.columns else pd.DataFrame()
-                
-                for ticker, label in zip(tickers, labels):
-                    if ticker in closes.columns:
-                        s = closes[ticker].dropna()
-                        if not s.empty:
-                            price = s.iloc[-1]
-                            implied_rate = 100 - price
-                            results.append({"contract": label, "ticker": ticker, "price": price, "implied_rate": implied_rate})
-        except Exception:
-            pass
+        closes = _yf_closes(tickers, period="5d")
+        for ticker, label in zip(tickers, labels):
+            if ticker in closes.columns:
+                s = closes[ticker].dropna()
+                if not s.empty:
+                    price = s.iloc[-1]
+                    implied_rate = 100 - price
+                    results.append({"contract": label, "ticker": ticker, "price": price, "implied_rate": implied_rate})
         return pd.DataFrame(results)
 
     ff_df = fetch_ff_futures()
@@ -1130,21 +1126,12 @@ with tab2:
             labels.append(label)
 
         results =[]
-        try:
-            data = yf.download(tickers, period="5d", auto_adjust=True, progress=False, threads=True)
-            if not data.empty:
-                if isinstance(data.columns, pd.MultiIndex):
-                    closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
-                else:
-                    closes = pd.DataFrame({tickers[0]: data["Close"]}) if "Close" in data.columns else pd.DataFrame()
-                
-                for ticker, label in zip(tickers, labels):
-                    if ticker in closes.columns:
-                        s = closes[ticker].dropna()
-                        if not s.empty:
-                            results.append({"contract": label, "implied_rate": 100 - s.iloc[-1]})
-        except Exception:
-            pass
+        closes = _yf_closes(tickers, period="5d")
+        for ticker, label in zip(tickers, labels):
+            if ticker in closes.columns:
+                s = closes[ticker].dropna()
+                if not s.empty:
+                    results.append({"contract": label, "implied_rate": 100 - s.iloc[-1]})
         return pd.DataFrame(results)
 
     sofr_strip = fetch_sofr_futures()
@@ -1195,15 +1182,7 @@ with tab3:
     def fetch_cross_asset_data(_ticker_tuple):
         all_tickers = list(_ticker_tuple)
         # Fetch 1 year of data for all calcs
-        try:
-            data = yf.download(all_tickers, period="1y", interval="1d", auto_adjust=True, progress=False, threads=True)
-            if isinstance(data.columns, pd.MultiIndex):
-                closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
-            else:
-                closes = data[["Close"]] if "Close" in data.columns else pd.DataFrame()
-            return closes
-        except Exception:
-            return pd.DataFrame()
+        return _yf_closes(all_tickers, period="1y", interval="1d")
 
     all_tickers = []
     for group in ASSET_GROUPS.values():
@@ -1339,21 +1318,12 @@ with tab4:
     def fetch_vix_data():
         tickers = ["^VIX", "^VIX3M", "^VIX6M", "^MOVE"]
         results = {}
-        try:
-            data = yf.download(tickers, period="3y", auto_adjust=True, progress=False, threads=True)
-            if not data.empty:
-                if isinstance(data.columns, pd.MultiIndex):
-                    closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
-                else:
-                    closes = pd.DataFrame({tickers[0]: data["Close"]}) if "Close" in data.columns else pd.DataFrame()
-                
-                for t in tickers:
-                    if t in closes.columns:
-                        s = closes[t].dropna()
-                        if not s.empty:
-                            results[t] = s
-        except Exception:
-            pass
+        closes = _yf_closes(tickers, period="3y")
+        for t in tickers:
+            if t in closes.columns:
+                s = closes[t].dropna()
+                if not s.empty:
+                    results[t] = s
         return results
 
     vix_data = fetch_vix_data()
@@ -1451,16 +1421,8 @@ with tab4:
     @st.cache_data(ttl=3600, show_spinner=False)
     def calc_vol_premium():
         try:
-            tickers = ["^GSPC", "^VIX"]
-            data = yf.download(tickers, period="2y", auto_adjust=True, progress=False, threads=True)
-            if data.empty:
-                return pd.DataFrame()
-            if isinstance(data.columns, pd.MultiIndex):
-                closes = data["Close"] if "Close" in data.columns.get_level_values(0) else pd.DataFrame()
-            else:
-                closes = pd.DataFrame({tickers[0]: data["Close"]}) if "Close" in data.columns else pd.DataFrame()
-
-            if "^GSPC" not in closes.columns or "^VIX" not in closes.columns:
+            closes = _yf_closes(["^GSPC", "^VIX"], period="2y")
+            if closes.empty or "^GSPC" not in closes.columns or "^VIX" not in closes.columns:
                 return pd.DataFrame()
 
             spx = closes["^GSPC"].dropna()
@@ -1871,21 +1833,10 @@ with tab6:
     @st.cache_data(ttl=3600, show_spinner=False)
     def fetch_sector_data():
         tickers = list(SECTOR_ETFS.values()) + ["^GSPC"]
-        try:
-            data = yf.download(
-                tickers, period="2y", interval="1d",
-                auto_adjust=True, progress=False, threads=True,
-            )
-            if isinstance(data.columns, pd.MultiIndex):
-                closes = data["Close"]
-            else:
-                closes = data[["Close"]]
-            closes = closes.dropna(how="all")
-            if closes.index.tz is not None:
-                closes.index = closes.index.tz_localize(None)
-            return closes
-        except Exception:
-            return pd.DataFrame()
+        closes = _yf_closes(tickers, period="2y", interval="1d").dropna(how="all")
+        if not closes.empty and closes.index.tz is not None:
+            closes.index = closes.index.tz_localize(None)
+        return closes
 
     sector_closes = fetch_sector_data()
 
@@ -2346,13 +2297,7 @@ with tab7:
         if RS_BASE not in tickers: tickers.append(RS_BASE)
         
         # Batch download 2Y for 252d rolling window
-        data = yf.download(tickers, period="2y", auto_adjust=True, progress=False)
-        if isinstance(data.columns, pd.MultiIndex):
-            prices = data["Close"].copy()
-        else:
-            prices = data.copy()
-        
-        prices = prices.dropna(axis=1, how="all").ffill().bfill()
+        prices = _yf_closes(tickers, period="2y").dropna(axis=1, how="all").ffill().bfill()
         base_price = prices[RS_BASE]
         
         # 1. RS Ratio & Trend
@@ -2611,7 +2556,7 @@ with tab8:
         # ── Section 2 — Regime Components Detail ─────────────────────
         st.markdown("#### Regime Components")
 
-        def _component_section(title, dim_score, dim_df, keys, labels, feats, zscores):
+        def _component_section(title, dim_score, keys, labels, feats, zscores):
             with st.expander(title, expanded=False):
                 rows = []
                 for k in keys:
@@ -2653,17 +2598,17 @@ with tab8:
 
         _component_section(
             "Growth Components",
-            combined["Growth"], data["growth_df"],
+            combined["Growth"],
             GROWTH_KEYS, GROWTH_LABELS, data["feats"], data["zscores"],
         )
         _component_section(
             "Inflation Components",
-            combined["Inflation"], data["inflation_df"],
+            combined["Inflation"],
             INFLATION_KEYS, INFLATION_LABELS, data["feats"], data["zscores"],
         )
         _component_section(
             "Liquidity Components",
-            combined["Liquidity"], data["liquidity_df"],
+            combined["Liquidity"],
             LIQUIDITY_KEYS, LIQUIDITY_LABELS, data["feats"], data["zscores"],
         )
 
@@ -2849,15 +2794,7 @@ with tab9:
         
         # Fetch asset prices: SPY (Eq), AGG (Bonds), GLD (Gold), UUP (Dollar)
         assets = {"SPY": "SPY", "AGG": "AGG", "GLD": "GLD", "DXY": "DX-Y.NYB"}
-        try:
-            data = yf.download(list(assets.values()), period="max", auto_adjust=True, progress=False, threads=True)
-            if isinstance(data.columns, pd.MultiIndex):
-                prices = data["Close"]
-            else:
-                prices = data
-        except Exception:
-            return None, None
-            
+        prices = _yf_closes(list(assets.values()), period="max")
         if prices.empty:
             return None, None
             
