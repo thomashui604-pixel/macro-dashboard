@@ -2106,16 +2106,20 @@ with tab6:
             ))
 
             fig_rrg.update_layout(
-                make_layout("Relative Rotation Graph — S&P 500 Sectors", height=620),
+                make_layout("Relative Rotation Graph — S&P 500 Sectors", height=750),
                 xaxis_title="RS-Ratio (Strength) →",
                 yaxis_title="RS-Momentum (Trend) →",
                 hovermode="closest",
                 xaxis=dict(range=[x_min, x_max], gridcolor="#21262d", zerolinecolor="#30363d", constrain="domain"),
                 yaxis=dict(range=[y_min, y_max], gridcolor="#21262d", zerolinecolor="#30363d", scaleanchor="x", scaleratio=1),
                 uirevision=True, # Maintain zoom on refresh
+                margin=dict(l=50, r=50, t=80, b=50), # Tighter margins for better fit
             )
             
-            st.plotly_chart(fig_rrg, use_container_width=True)
+            # Center the square chart in a wide layout using columns
+            rrg_c1, rrg_c2, rrg_c3 = st.columns([1, 8, 1])
+            with rrg_c2:
+                st.plotly_chart(fig_rrg, use_container_width=True)
         else:
             st.info("Insufficient history for RRG calculation (need ~20+ weeks).")
 
