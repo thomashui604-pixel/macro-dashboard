@@ -731,7 +731,7 @@ with tab1:
 
             # ── 5Y5Y Forward Real Rate (r-star proxy) ──
             st.markdown("#### Real Forward Dynamics (5Y5Y)")
-            st.caption("The 5-year real rate, 5 years forward. Often used as a market-based proxy for 'r-star' (the neutral real rate).")
+            st.caption("The 5-year real rate, 5 years forward. Often used as a market-based proxy for 'r-star' (the neutral real rate). Implied from TIPS yields: (10 × 10Y Real - 5 × 5Y Real) / 5.")
             
             if "DFII5" in real_series and "DFII10" in real_series:
                 # 5Y5Y Forward Real Rate = (10 * 10Y_Real - 5 * 5Y_Real) / 5
@@ -1675,6 +1675,7 @@ with tab5:
             {"PCE YoY": "PCEPI", "Core PCE YoY": "PCEPILFE"},
             "PCE & Core PCE (YoY %)", yoy_compute=["PCEPI", "PCEPILFE"], ylabel="%"
         )
+    st.caption("5-year forward inflation expectation. Implied from the difference between nominal and inflation-indexed Treasury yields (FRED: T5YIFR). Often used to measure the anchoring of long-term inflation expectations.")
     make_macro_chart(
         {"5Y5Y Forward Inflation": "T5YIFR"},
         "5Y5Y Forward Inflation Expectation", ylabel="%"
