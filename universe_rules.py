@@ -8,11 +8,13 @@ crypto trusts) are tagged for exclusion so the ACWI denominator stays coherent.
 from __future__ import annotations
 
 import re
+import warnings
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from typing import Optional
 
+import numpy as np
 import pandas as pd
 import yfinance as yf
 
@@ -412,8 +414,6 @@ def apply_rules(df: pd.DataFrame, preserve_overrides: bool = True) -> pd.DataFra
     Vectorized implementation: rules evaluated as boolean masks, first failing
     rule wins via np.select.
     """
-    import numpy as np
-
     df = df.copy()
     if "override" not in df.columns:
         df["override"] = False
@@ -457,9 +457,8 @@ def apply_rules(df: pd.DataFrame, preserve_overrides: bool = True) -> pd.DataFra
             return np.nan
     inception_years = inception.map(_years_since)
 
-    import warnings as _warnings
-    with _warnings.catch_warnings():
-        _warnings.simplefilter("ignore", UserWarning)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
         name_has_lev = name.str.contains(LEVERAGED_RE, na=False)
         name_has_ss = name.str.contains(SINGLE_STOCK_RE, na=False)
         name_has_yc = name.str.contains(YIELD_CARRY_RE, na=False)
