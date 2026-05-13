@@ -144,6 +144,30 @@ def make_layout(title="", height=420, **kwargs):
     layout.update(kwargs)
     return go.Layout(**layout)
 
+_MONTH_CODES = ["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"]
+_MONTH_NAMES = {"F": "Jan", "G": "Feb", "H": "Mar", "J": "Apr", "K": "May", "M": "Jun",
+                "N": "Jul", "Q": "Aug", "U": "Sep", "V": "Oct", "X": "Nov", "Z": "Dec"}
+
+def _build_futures_tickers(prefix: str, exchange: str, n_months: int):
+    now = datetime.now()
+    tickers, labels = [], []
+    for i in range(n_months):
+        m_idx = (now.month - 1 + i) % 12
+        year  = now.year + (now.month - 1 + i) // 12
+        code  = _MONTH_CODES[m_idx]
+        tickers.append(f"{prefix}{code}{str(year)[-2:]}.{exchange}")
+        labels.append(f"{_MONTH_NAMES[code]} {year}")
+    return tickers, labels
+
+def strip_tz(s: pd.Series) -> pd.Series:
+    if s.index.tz is not None:
+        return s.copy().set_axis(s.index.tz_localize(None))
+    return s
+
+def pct_rank(series: pd.Series, current_val: float, days: int) -> float:
+    window = series.tail(days).dropna()
+    return (window < current_val).sum() / len(window) * 100 if len(window) else float("nan")
+
 # ─────────────────────────────────────────────────────────────────────
 # DATA FETCHING HELPERS
 # ─────────────────────────────────────────────────────────────────────
@@ -491,7 +515,7 @@ with tab1:
     @st.cache_data(ttl=21600, show_spinner=False)
     def get_yield_curve_data():
         df = fetch_fred_multi(list(YIELD_SERIES.values()), start="2023-01-01")
-        df.columns = [k for k, v in YIELD_SERIES.items() if v in df.columns][:len(df.columns)]
+        df.rename(columns={v: k for k, v in YIELD_SERIES.items()}, inplace=True)
         return df
 
     yield_df = get_yield_curve_data()
@@ -500,17 +524,16 @@ with tab1:
         st.warning("⚠️ Yield curve data unavailable. Check FRED API key.")
     else:
         # ── AI Summary ──
-        if not yield_df.empty:
-            _row = yield_df.iloc[-1]
-            _prev = yield_df.iloc[-6] if len(yield_df) > 5 else _row
-            _ctx = "US Treasury Yields (current vs 1 week ago):\n"
-            for t in ["2Y", "5Y", "10Y", "30Y"]:
-                if t in _row.index:
-                    chg = _row[t] - _prev.get(t, _row[t])
-                    _ctx += f"  {t}: {_row[t]:.3f}% ({chg:+.0f}bp)\n"
-            if "2Y" in _row.index and "10Y" in _row.index:
-                _ctx += f"  2s10s spread: {(_row['10Y'] - _row['2Y'])*100:.0f}bp\n"
-            ai_summary("rates", _ctx)
+        _row = yield_df.iloc[-1]
+        _prev = yield_df.iloc[-6] if len(yield_df) > 5 else _row
+        _ctx = "US Treasury Yields (current vs 1 week ago):\n"
+        for t in ["2Y", "5Y", "10Y", "30Y"]:
+            if t in _row.index:
+                chg = _row[t] - _prev.get(t, _row[t])
+                _ctx += f"  {t}: {_row[t]:.3f}% ({chg:+.0f}bp)\n"
+        if "2Y" in _row.index and "10Y" in _row.index:
+            _ctx += f"  2s10s spread: {(_row['10Y'] - _row['2Y'])*100:.0f}bp\n"
+        ai_summary("rates", _ctx)
 
         # ── Yield Curve Chart ──
         st.markdown("#### US Treasury Par Yield Curve")
@@ -781,26 +804,9 @@ with tab2:
     @st.cache_data(ttl=3600, show_spinner=False)
     def fetch_ff_futures():
         """Fetch Fed Funds Futures strip from yfinance."""
-        months = {"F": "Jan", "G": "Feb", "H": "Mar", "J": "Apr", "K": "May", "M": "Jun",
-                  "N": "Jul", "Q": "Aug", "U": "Sep", "V": "Oct", "X": "Nov", "Z": "Dec"}
-        month_codes =["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"]
-        now = datetime.now()
-
-        tickers = []
-        labels =[]
-        # FIX: Increased from 18 to 24 months to ensure we have the "next month" 
-        # contract for CME math on late-year meetings.
-        for i in range(24):
-            m_idx = (now.month - 1 + i) % 12
-            year = now.year + (now.month - 1 + i) // 12
-            code = month_codes[m_idx]
-            yr = str(year)[-2:]
-            ticker = f"ZQ{code}{yr}.CBT"
-            label = f"{months[code]} {year}"
-            tickers.append(ticker)
-            labels.append(label)
-
-        results =[]
+        # 24 months to ensure "next month" contract is available for CME math on late-year meetings.
+        tickers, labels = _build_futures_tickers("ZQ", "CBT", 24)
+        results = []
         closes = _yf_closes(tickers, period="5d")
         for ticker, label in zip(tickers, labels):
             if ticker in closes.columns:
@@ -888,21 +894,19 @@ with tab2:
             d_a = days_in_month - d_b
 
             # 1. Establish Pre-Meeting Rate
-            use_chain = (prev_post_rate is not None and prev_mtg is not None 
+            prior_month = mtg.month - 1 if mtg.month > 1 else 12
+            prior_year = mtg.year if mtg.month > 1 else mtg.year - 1
+            prior_key = month_key(date(prior_year, prior_month, 1))
+            use_chain = (prev_post_rate is not None and prev_mtg is not None
                          and prev_mtg.year == mtg.year and prev_mtg.month == mtg.month)
             if use_chain:
                 pre_rate = prev_post_rate
+            elif prior_key in contracts_dict:
+                pre_rate = contracts_dict[prior_key]
+            elif prev_post_rate is not None:
+                pre_rate = prev_post_rate
             else:
-                prior_month = mtg.month - 1 if mtg.month > 1 else 12
-                prior_year = mtg.year if mtg.month > 1 else mtg.year - 1
-                prior_key = month_key(date(prior_year, prior_month, 1))
-                
-                if prior_key in contracts_dict:
-                    pre_rate = contracts_dict[prior_key]
-                elif prev_post_rate is not None:
-                    pre_rate = prev_post_rate
-                else:
-                    pre_rate = current_effr
+                pre_rate = current_effr
 
             # 2. Extract Implied Post-Meeting Rate
             next_month = mtg.month + 1 if mtg.month < 12 else 1
@@ -1092,23 +1096,8 @@ with tab2:
     st.markdown("#### SOFR Futures Strip (SR1)")
     @st.cache_data(ttl=3600, show_spinner=False)
     def fetch_sofr_futures():
-        month_codes =["F", "G", "H", "J", "K", "M", "N", "Q", "U", "V", "X", "Z"]
-        months_map = {"F": "Jan", "G": "Feb", "H": "Mar", "J": "Apr", "K": "May", "M": "Jun",
-                      "N": "Jul", "Q": "Aug", "U": "Sep", "V": "Oct", "X": "Nov", "Z": "Dec"}
-        now = datetime.now()
-        tickers = []
-        labels = []
-        for i in range(8):
-            m_idx = (now.month - 1 + i) % 12
-            year = now.year + (now.month - 1 + i) // 12
-            code = month_codes[m_idx]
-            yr = str(year)[-2:]
-            ticker = f"SR1{code}{yr}.CME"
-            label = f"{months_map[code]} {year}"
-            tickers.append(ticker)
-            labels.append(label)
-
-        results =[]
+        tickers, labels = _build_futures_tickers("SR1", "CME", 8)
+        results = []
         closes = _yf_closes(tickers, period="5d")
         for ticker, label in zip(tickers, labels):
             if ticker in closes.columns:
@@ -1181,8 +1170,8 @@ with tab3:
     for group in ASSET_GROUPS.values():
         all_tickers.extend(group.values())
     cross_data = fetch_cross_asset_data(tuple(all_tickers))
-    if not cross_data.empty and cross_data.index.tz is not None:
-        cross_data.index = cross_data.index.tz_localize(None)
+    if not cross_data.empty:
+        cross_data = cross_data.pipe(lambda df: df.set_index(df.index.tz_localize(None)) if df.index.tz else df)
 
     # ── AI Summary ──
     if not cross_data.empty:
@@ -1207,13 +1196,10 @@ with tab3:
         if len(s) < 2:
             return None
         current = s.iloc[-1]
-        stats = {"price": current}
-        # 1D change
-        if len(s) >= 2:
-            stats["1D"] = safe_pct_change(s.iloc[-1], s.iloc[-2])
+        stats = {"price": current, "1D": safe_pct_change(s.iloc[-1], s.iloc[-2])}
         # 1W
         if len(s) >= 6:
-            stats["1W"] = safe_pct_change(current, s.iloc[-6] if len(s) >= 6 else s.iloc[0])
+            stats["1W"] = safe_pct_change(current, s.iloc[-6])
         # 1M
         idx_1m = s.index[s.index <= s.index[-1] - timedelta(days=28)]
         if len(idx_1m) > 0:
@@ -1379,7 +1365,7 @@ with tab4:
 
     if "^VIX" in vix_data:
         vix_series = vix_data["^VIX"]
-        vix_series.index = vix_series.index.tz_localize(None) if vix_series.index.tz else vix_series.index
+        vix_series = strip_tz(vix_series)
         start = lookback_date(vix_lb)
         vix_plot = vix_series[vix_series.index >= start]
 
@@ -1402,45 +1388,30 @@ with tab4:
             current_vix = vix_series.iloc[-1]
             pct_cols = st.columns(3)
             for col, (period, days) in zip(pct_cols, [("1Y", 252), ("3Y", 756), ("5Y", 1260)]):
-                lookback_data = vix_series.tail(days)
-                if len(lookback_data) > 0:
-                    pct = (lookback_data < current_vix).sum() / len(lookback_data) * 100
-                    col.metric(f"Percentile ({period})", f"{pct:.0f}th")
+                col.metric(f"Percentile ({period})", f"{pct_rank(vix_series, current_vix, days):.0f}th")
             st.plotly_chart(fig_vix, use_container_width=True)
 
     # ── Realized vs Implied Vol ──
     st.markdown("#### SPX Realized vs Implied Volatility")
 
     @st.cache_data(ttl=3600, show_spinner=False)
-    def calc_vol_premium():
+    def calc_vol_premium(_vix_series: pd.Series):
         try:
-            closes = _yf_closes(["^GSPC", "^VIX"], period="2y")
-            if closes.empty or "^GSPC" not in closes.columns or "^VIX" not in closes.columns:
+            closes = _yf_closes(["^GSPC"], period="3y")
+            if closes.empty or "^GSPC" not in closes.columns or _vix_series.empty:
                 return pd.DataFrame()
-
-            spx = closes["^GSPC"].dropna()
-            vix_hist = closes["^VIX"].dropna()
-            
-            if spx.empty or vix_hist.empty:
-                return pd.DataFrame()
-
-            # Strip timezones so indexes align (SPX=New_York, VIX=Chicago)
-            spx.index = spx.index.tz_localize(None) if spx.index.tz else spx.index
-            vix_hist.index = vix_hist.index.tz_localize(None) if vix_hist.index.tz else vix_hist.index
-            # Realized vol: 20-day annualized
+            spx = strip_tz(closes["^GSPC"].dropna())
+            vix_hist = strip_tz(_vix_series.dropna())
             returns = spx.pct_change()
             realized = returns.rolling(20).std() * np.sqrt(252) * 100
-            # Align dates
-            df = pd.DataFrame({"Realized Vol (20d)": realized, "VIX (Implied)": vix_hist})
-            df = df.dropna()
+            df = pd.DataFrame({"Realized Vol (20d)": realized, "VIX (Implied)": vix_hist}).dropna()
             df["Vol Risk Premium"] = df["VIX (Implied)"] - df["Realized Vol (20d)"]
             return df
         except Exception:
             return pd.DataFrame()
 
-    vol_df = calc_vol_premium()
+    vol_df = calc_vol_premium(vix_data.get("^VIX", pd.Series(dtype=float)))
     if not vol_df.empty:
-        vol_df.index = vol_df.index.tz_localize(None) if vol_df.index.tz else vol_df.index
         # Filter to lookback
         vol_start = lookback_date(global_lookback)
         vol_plot = vol_df[vol_df.index >= vol_start]
@@ -1475,7 +1446,7 @@ with tab4:
 
     if "^MOVE" in vix_data:
         move_series = vix_data["^MOVE"]
-        move_series.index = move_series.index.tz_localize(None) if move_series.index.tz else move_series.index
+        move_series = strip_tz(move_series)
 
         # MOVE metrics + time series side by side
         move_m_col, move_ts_col = st.columns([1, 3])
@@ -1485,10 +1456,7 @@ with tab4:
             st.metric("MOVE", f"{current_move:.1f}")
             # Percentile ranks
             for period, days in [("1Y", 252), ("3Y", 756), ("5Y", 1260)]:
-                lb_data = move_series.tail(days)
-                if len(lb_data) > 0:
-                    pct = (lb_data < current_move).sum() / len(lb_data) * 100
-                    st.metric(f"Pctl ({period})", f"{pct:.0f}th")
+                st.metric(f"Pctl ({period})", f"{pct_rank(move_series, current_move, days):.0f}th")
 
         with move_ts_col:
             move_lb_col2, _ = st.columns([1, 3])
@@ -1516,7 +1484,7 @@ with tab4:
         st.markdown("#### VIX vs MOVE — Equity Vol vs Rates Vol")
         if "^VIX" in vix_data:
             vix_comp = vix_data["^VIX"].copy()
-            vix_comp.index = vix_comp.index.tz_localize(None) if vix_comp.index.tz else vix_comp.index
+            vix_comp = strip_tz(vix_comp)
             comp_start = lookback_date(move_lb)
             vix_c = vix_comp[vix_comp.index >= comp_start]
             move_c = move_series[move_series.index >= comp_start]
@@ -1832,6 +1800,7 @@ with tab6:
             closes.index = closes.index.tz_localize(None)
         return closes
 
+
     sector_closes = fetch_sector_data()
 
     if sector_closes.empty:
@@ -1885,13 +1854,7 @@ with tab6:
                 else:
                     row[pname] = "—"
             tbl_rows.append(row)
-        def _sort_key(r):
-            v = r.get("1D", "—")
-            try:
-                return float(v.replace("%", "").replace("+", ""))
-            except Exception:
-                return -999
-        tbl_rows.sort(key=_sort_key, reverse=True)
+        tbl_rows.sort(key=lambda r: period_raw["1D"].get(r["Sector"], -999), reverse=True)
         tbl_df = pd.DataFrame(tbl_rows).set_index("Sector")
         st.dataframe(tbl_df, use_container_width=True)
 
