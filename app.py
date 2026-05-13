@@ -1540,6 +1540,153 @@ with tab5:
                 _macro_ctx += f"  {label}: {cur:.2f}%\n"
     ai_summary("macro", _macro_ctx)
 
+    # ── At-a-glance KPI strip + heatmap ──
+    @st.cache_data(ttl=21600, show_spinner=False)
+    def _macro_kpi_panel():
+        specs = [
+            ("CPI YoY",         "CPIAUCSL",        "yoy",   -1, "{:.1f}%"),
+            ("Core CPI YoY",    "CPILFESL",        "yoy",   -1, "{:.1f}%"),
+            ("Core PCE YoY",    "PCEPILFE",        "yoy",   -1, "{:.1f}%"),
+            ("5Y5Y Fwd Infl",   "T5YIFR",          "level", -1, "{:.2f}%"),
+            ("Unemployment",    "UNRATE",          "level", -1, "{:.1f}%"),
+            ("NFP MoM (K)",     "PAYEMS",          "diff",  +1, "{:+.0f}"),
+            ("Initial Claims",  "ICSA",            "level", -1, "{:,.0f}"),
+            ("JOLTS Openings",  "JTSJOL",          "level", +1, "{:,.0f}"),
+            ("Real GDP QoQ",    "A191RL1Q225SBEA", "level", +1, "{:+.1f}%"),
+            ("Retail Sales YoY","RSAFS",           "yoy",   +1, "{:+.1f}%"),
+            ("Mich. Sentiment", "UMCSENT",         "level", +1, "{:.0f}"),
+            ("HY OAS (bps)",    "BAMLH0A0HYM2",    "level", -1, "{:.0f}"),
+            ("IG OAS (bps)",    "BAMLC0A0CM",      "level", -1, "{:.0f}"),
+            ("NFCI",            "NFCI",            "level", -1, "{:+.2f}"),
+        ]
+        start = (pd.Timestamp.now() - timedelta(days=365 * 7)).strftime("%Y-%m-%d")
+        rows = []
+        for label, sid, transform, good_dir, fmt in specs:
+            s = fetch_fred_series(sid, start=start)
+            if s is None or len(s) < 14:
+                continue
+            if transform == "yoy":
+                ser = (s.pct_change(12) * 100).dropna()
+            elif transform == "diff":
+                ser = s.diff().dropna()
+            else:
+                ser = s.dropna()
+            if len(ser) < 13:
+                continue
+            cur = float(ser.iloc[-1])
+            delta = cur - float(ser.iloc[-2])
+            five_y_ago = ser.index[-1] - pd.DateOffset(years=5)
+            window = ser[ser.index >= five_y_ago]
+            pct = float(window.rank(pct=True).iloc[-1]) * 100
+            rows.append({
+                "label": label, "good_dir": good_dir, "fmt": fmt,
+                "cur": cur, "delta": delta, "pct": pct,
+                "asof": ser.index[-1], "history": ser,
+            })
+        return rows
+
+    def _render_kpi_card(row):
+        is_good = (1 if row["delta"] >= 0 else -1) == row["good_dir"]
+        color = GREEN if is_good else RED
+        val_str = row["fmt"].format(row["cur"])
+        delta_str = row["fmt"].format(row["delta"]).lstrip("+")
+        arrow = "▲" if row["delta"] >= 0 else "▼"
+        html = (
+            f'<div style="border-left:3px solid {color};padding:6px 8px;'
+            f'background:#161b22;border-radius:3px;margin-bottom:6px;height:84px;">'
+            f'<div style="font-size:10px;color:#8b949e;text-transform:uppercase;letter-spacing:0.3px;">{row["label"]}</div>'
+            f'<div style="font-size:18px;font-weight:600;color:#c9d1d9;line-height:1.25;">{val_str}</div>'
+            f'<div style="font-size:10px;color:{color};">{arrow} {delta_str} · {row["pct"]:.0f}p/5y</div>'
+            f'<div style="font-size:9px;color:#484f58;">{row["asof"].strftime("%b %y")}</div>'
+            f'</div>'
+        )
+        st.markdown(html, unsafe_allow_html=True)
+
+    def _render_kpi_strip(rows):
+        per_row = 7
+        for i in range(0, len(rows), per_row):
+            cols = st.columns(per_row)
+            for j, row in enumerate(rows[i:i + per_row]):
+                with cols[j]:
+                    _render_kpi_card(row)
+
+    def _render_macro_heatmap(rows):
+        z_grid, labels, x_labels = [], [], None
+        for row in rows:
+            m = row["history"].resample("ME").last().ffill().dropna()
+            if len(m) < 24:
+                continue
+            base = m.tail(60)
+            mean, std = base.mean(), base.std()
+            if not std or pd.isna(std):
+                continue
+            recent = m.tail(12)
+            signed_z = ((recent - mean) / std) * (-row["good_dir"])
+            z_grid.append(signed_z.values.tolist())
+            labels.append(row["label"])
+            x_labels = [d.strftime("%b %y") for d in recent.index]
+        if not z_grid:
+            return
+        fig = go.Figure(go.Heatmap(
+            z=z_grid, x=x_labels, y=labels,
+            colorscale=[[0, "#f85149"], [0.5, "#161b22"], [1, "#3fb950"]],
+            zmid=0, zmin=-2.5, zmax=2.5,
+            colorbar=dict(title="σ", thickness=10, len=0.7),
+            hovertemplate="%{y} · %{x}<br>signed z: %{z:.2f}<extra></extra>",
+        ))
+        fig.update_layout(make_layout("Macro Heatmap — last 12 months (green = good direction vs 5y)", height=420))
+        fig.update_xaxes(showgrid=False)
+        fig.update_yaxes(showgrid=False, autorange="reversed")
+        st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("#### At a Glance")
+    st.caption("Tile color = latest print moving in the 'good' direction (green) or not (red). 'p/5y' = percentile of current value vs trailing 5 years.")
+    _kpi_rows = _macro_kpi_panel()
+    _render_kpi_strip(_kpi_rows)
+    _render_macro_heatmap(_kpi_rows)
+    _rows_by_label = {r["label"]: r for r in _kpi_rows}
+
+    def _section_caption(section):
+        R = _rows_by_label
+        def g(l): return R.get(l)
+        if section == "Inflation":
+            cpi, pce = g("Core CPI YoY"), g("Core PCE YoY")
+            if cpi and pce:
+                avg = (cpi["cur"] + pce["cur"]) / 2
+                if cpi["delta"] < 0 and pce["delta"] < 0: trend = "cooling"
+                elif cpi["delta"] > 0 and pce["delta"] > 0: trend = "re-accelerating"
+                else: trend = "mixed"
+                return f"Core inflation ~{avg:.1f}% YoY, {trend} vs prior print."
+        if section == "Labor":
+            u, nfp, claims = g("Unemployment"), g("NFP MoM (K)"), g("Initial Claims")
+            bits = []
+            if u: bits.append(f"U-rate {u['cur']:.1f}% ({u['delta']:+.1f})")
+            if nfp: bits.append(f"NFP {nfp['cur']:+.0f}k")
+            if claims: bits.append(f"claims {claims['cur']:,.0f}")
+            return " · ".join(bits)
+        if section == "Activity":
+            gdp = g("Real GDP QoQ")
+            if gdp: return f"Real GDP {gdp['cur']:+.1f}% QoQ ann. ({gdp['asof'].strftime('%b %y')})."
+        if section == "Consumer":
+            rs, ms = g("Retail Sales YoY"), g("Mich. Sentiment")
+            parts = []
+            if rs: parts.append(f"Retail sales {rs['cur']:+.1f}% YoY")
+            if ms: parts.append(f"Michigan sentiment {ms['cur']:.0f}")
+            return " · ".join(parts)
+        if section == "Financial Conditions":
+            nfci, hy = g("NFCI"), g("HY OAS (bps)")
+            parts = []
+            if nfci: parts.append(f"NFCI {nfci['cur']:+.2f} ({'tightening' if nfci['delta'] > 0 else 'easing'})")
+            if hy: parts.append(f"HY OAS {hy['cur']:.0f}bps")
+            return " · ".join(parts)
+        return ""
+
+    def _section_header(title, key):
+        st.markdown(f"#### {title}")
+        cap = _section_caption(key)
+        if cap:
+            st.caption(cap)
+
     def make_macro_chart(series_dict, title, height=350, yoy_compute=None, mom_diff=None, ylabel="", chart_type="line", min_years=None):
         """Helper to build macro time series charts."""
         # Allow individual charts to override the global lookback floor (e.g. quarterly GDP
@@ -1624,7 +1771,7 @@ with tab5:
         st.plotly_chart(fig, use_container_width=True)
 
     # ── Inflation ──
-    st.markdown("#### Inflation")
+    _section_header("Inflation", "Inflation")
     infl_col1, infl_col2 = st.columns(2)
     with infl_col1:
         make_macro_chart(
@@ -1683,7 +1830,7 @@ with tab5:
         )
 
     # ── Labor Market ──
-    st.markdown("#### Labor Market")
+    _section_header("Labor Market", "Labor")
     labor_col1, labor_col2 = st.columns(2)
     with labor_col1:
         make_macro_chart({"Unemployment Rate": "UNRATE"}, "Unemployment Rate (%)", ylabel="%")
@@ -1704,7 +1851,7 @@ with tab5:
         )
 
     # ── Activity ──
-    st.markdown("#### Activity")
+    _section_header("Activity", "Activity")
     act_col1, act_col2 = st.columns(2)
     with act_col1:
         make_macro_chart(
@@ -1727,7 +1874,7 @@ with tab5:
         make_macro_chart({"CFNAI": "CFNAI"}, "Chicago Fed National Activity Index", ylabel="Index")
 
     # ── Consumer ──
-    st.markdown("#### Consumer")
+    _section_header("Consumer", "Consumer")
     cons_col1, cons_col2 = st.columns(2)
     with cons_col1:
         make_macro_chart(
@@ -1746,7 +1893,7 @@ with tab5:
         make_macro_chart({"Housing Starts": "HOUST"}, "Housing Starts", ylabel="Thousands")
 
     # ── Financial Conditions ──
-    st.markdown("#### Financial Conditions")
+    _section_header("Financial Conditions", "Financial Conditions")
     fin_col1, fin_col2 = st.columns(2)
     with fin_col1:
         make_macro_chart(
